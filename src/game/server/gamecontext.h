@@ -231,7 +231,7 @@ private:
 	static void ConTogglePause(IConsole::IResult *pResult, void *pUserData, int ClientID);
 	static void ConTop5(IConsole::IResult *pResult, void *pUserData, int ClientID);
 	#if defined(CONF_SQL)
-	static void ConLast5Times(IConsole::IResult *pResult, void *pUserData, int ClientID);
+	static void ConTimes(IConsole::IResult *pResult, void *pUserData, int ClientID);
 	#endif
 	static void ConRank(IConsole::IResult *pResult, void *pUserData, int ClientID);
 	static void ConBroadTime(IConsole::IResult *pResult, void *pUserData, int ClientID);

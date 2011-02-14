@@ -753,26 +753,31 @@ void CGameContext::ConTop5(IConsole::IResult *pResult, void *pUserData, int Clie
 		pSelf->Score()->ShowTop5(pPlayer->GetCID());
 }
 #if defined(CONF_SQL)
-void CGameContext::ConLast5Times(IConsole::IResult *pResult, void *pUserData, int ClientID)
+void CGameContext::ConTimes(IConsole::IResult *pResult, void *pUserData, int ClientID)
 {
 	if(g_Config.m_SvUseSQL)
 	{
 		CGameContext *pSelf = (CGameContext *)pUserData;
 		CSqlScore *pScore = (CSqlScore *)pSelf->Score();
 		CPlayer *pPlayer = pSelf->m_apPlayers[ClientID];
-		
-		if(pResult->NumArguments() > 0)
+
+		if(pResult->NumArguments() > 0 && pResult->NumArguments() < 3)
 		{
 			if (pResult->NumArguments() == 1)
-				pScore->ShowLast5Times(pPlayer->GetCID(), (str_comp(pResult->GetString(0), "me") == 0) ? pSelf->Server()->ClientName(ClientID) : pResult->GetString(0),1);
-			else
-				pScore->ShowLast5Times(pPlayer->GetCID(), (str_comp(pResult->GetString(0), "me") == 0) ? pSelf->Server()->ClientName(ClientID) : pResult->GetString(0),pResult->GetInteger(1));
+			{
+				pScore->ShowTimes(pPlayer->GetCID(), (str_comp(pResult->GetString(0), "me") == 0) ? pSelf->Server()->ClientName(ClientID) : pResult->GetString(0),1);
+				return;
+			}
+			else if (pResult->GetInteger(1) != 0)
+			{
+				pScore->ShowTimes(pPlayer->GetCID(), (str_comp(pResult->GetString(0), "me") == 0) ? pSelf->Server()->ClientName(ClientID) : pResult->GetString(0),pResult->GetInteger(1));
+				return;
+			}
 		}
-		else{
-			pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "/last5times needs 1-2 parameter. 1st for name, 2nd for start number");
-			pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "Example with 1: /last5times me, /last5times nameless tee");
-			pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "Example with 2: /last5times 5 me, /last5times 5 nameless tee");				
-		}
+			
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "/times needs 1 or 2 parameter. 1. = name, 2. = start with number");
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "Example: /times me, /times Hans, /times \"Papa Smurf\" 5");
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "Bad: /times Papa Smurf 5 # Good: /times \"Papa Smurf\" 5 ");						
 	}	
 }
 #endif

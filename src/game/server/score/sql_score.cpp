@@ -520,7 +520,7 @@ void CSqlScore::ShowTop5Thread(void *pUser)
 	lock_release(gs_SqlLock);
 }
 
-void CSqlScore::ShowLast5TimesThread(void *pUser)
+void CSqlScore::ShowTimesThread(void *pUser)
 {
 	lock_wait(gs_SqlLock);
 	CSqlScoreData *pData = (CSqlScoreData *)pUser;
@@ -561,7 +561,7 @@ void CSqlScore::ShowLast5TimesThread(void *pUser)
 			}
 			pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, "------------------------------------");
 
-			dbg_msg("SQL", "Showing last5times done");
+			dbg_msg("SQL", "Showing times done");
 
 			// delete results and statement
 			delete pData->m_pSqlData->m_pResults;
@@ -572,7 +572,7 @@ void CSqlScore::ShowLast5TimesThread(void *pUser)
 			char aBuf[256];
 			str_format(aBuf, sizeof(aBuf), "MySQL Error: %s", e.what());
 			dbg_msg("SQL", aBuf);
-			dbg_msg("SQL", "ERROR: Could not show last5times");
+			dbg_msg("SQL", "ERROR: Could not show times");
 		}
 
 		// disconnect from database
@@ -597,7 +597,7 @@ void CSqlScore::ShowTop5(int ClientID, int Debut)
 #endif
 }
 
-void CSqlScore::ShowLast5Times(int ClientID, const char* pName, int Debut)
+void CSqlScore::ShowTimes(int ClientID, const char* pName, int Debut)
 {
 	CSqlScoreData *Tmp = new CSqlScoreData();
 	Tmp->m_Num = Debut;
@@ -605,9 +605,9 @@ void CSqlScore::ShowLast5Times(int ClientID, const char* pName, int Debut)
 	str_copy(Tmp->m_aName, pName, sizeof(Tmp->m_aName));
 	Tmp->m_pSqlData = this;
 
-	void *Last5TimesThread = thread_create(ShowLast5TimesThread, Tmp);
+	void *TimesThread = thread_create(ShowTimesThread, Tmp);
 	#if defined(CONF_FAMILY_UNIX)
-		pthread_detach((pthread_t)Last5TimesThread);
+		pthread_detach((pthread_t)TimesThread);
 	#endif	
 }
 

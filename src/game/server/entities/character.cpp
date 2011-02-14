@@ -996,16 +996,6 @@ void CCharacter::OnFinish()
 			if(str_comp_num(Server()->ClientName(m_pPlayer->GetCID()), "nameless tee", 12) != 0)
 				GameServer()->Score()->SaveScore(m_pPlayer->GetCID(), time, this);		
 
-		if(!pData->m_BestTime || time < pData->m_BestTime && !g_Config.m_SvUseSQL)
-		{
-			// update the score
-			pData->Set(time, m_CpCurrent);
-		}
-		else
-		{
-			if(str_comp_num(Server()->ClientName(m_pPlayer->GetCID()), "nameless tee", 12) != 0)
-				GameServer()->Score()->SaveScore(m_pPlayer->GetCID(), time, this);
-		}
 		bool NeedToSendNewRecord = false;
 		// update server best time
 		if(GameServer()->m_pController->m_CurrentRecord == 0 || time < GameServer()->m_pController->m_CurrentRecord)

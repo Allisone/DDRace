@@ -536,30 +536,53 @@ void CSqlScore::ShowTimesThread(void *pUser)
 			
 			// check sort methode
 			char aBuf[512];
-			str_format(aBuf, sizeof(aBuf), "SELECT Time, UNIX_TIMESTAMP(CURRENT_TIMESTAMP)-UNIX_TIMESTAMP(Timestamp) as Ago, UNIX_TIMESTAMP(Timestamp) as Stamp FROM %s_%s_race WHERE Name = '%s' ORDER BY Ago ASC LIMIT %d, 5;", pData->m_pSqlData->m_pPrefix, pData->m_pSqlData->m_aMap, pData->m_aName, pData->m_Num-1);
+
+			if(pData->m_Search)
+				str_format(aBuf, sizeof(aBuf), "SELECT Time, UNIX_TIMESTAMP(CURRENT_TIMESTAMP)-UNIX_TIMESTAMP(Timestamp) as Ago, UNIX_TIMESTAMP(Timestamp) as Stamp FROM %s_%s_race WHERE Name = '%s' ORDER BY Ago ASC LIMIT %d, 5;", pData->m_pSqlData->m_pPrefix, pData->m_pSqlData->m_aMap, pData->m_aName, pData->m_Num-1);
+			else
+				str_format(aBuf, sizeof(aBuf), "SELECT Name, Time, UNIX_TIMESTAMP(CURRENT_TIMESTAMP)-UNIX_TIMESTAMP(Timestamp) as Ago, UNIX_TIMESTAMP(Timestamp) as Stamp FROM %s_%s_race ORDER BY Ago ASC LIMIT %d, 5;", pData->m_pSqlData->m_pPrefix, pData->m_pSqlData->m_aMap, pData->m_Num-1);
+
 			pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);
 
 			// show top5
-			pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, "--------- Last 5 Times ---------");
+			if(pData->m_pSqlData->m_pResults->rowsCount() == 0){
+				pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, "There are no times in the specified range");				
+				goto end;
+			}
+			
+			str_format(aBuf, sizeof(aBuf), "------------ Last Times No %d - %d ------------",pData->m_Num,pData->m_Num + pData->m_pSqlData->m_pResults->rowsCount() - 1);
+			pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, aBuf);
 
-			float Time = 0;
-			int since = 0;
-			int stamp = 0;
+			float pTime = 0;
+			int pSince = 0;
+			int pStamp = 0;
+
 			while(pData->m_pSqlData->m_pResults->next())
 			{
-				char agoString[40] = "\0";
-				since = (int)pData->m_pSqlData->m_pResults->getInt("Ago");
-				stamp = (int)pData->m_pSqlData->m_pResults->getInt("Stamp");
-				Time = (float)pData->m_pSqlData->m_pResults->getDouble("Time");
-				agoTimeToString(since,agoString);								
+				char pAgoString[40] = "\0";
+				pSince = (int)pData->m_pSqlData->m_pResults->getInt("Ago");
+				pStamp = (int)pData->m_pSqlData->m_pResults->getInt("Stamp");
+				pTime = (float)pData->m_pSqlData->m_pResults->getDouble("Time");
+
+				agoTimeToString(pSince,pAgoString);								
 				
-				if(stamp == 0) // stamp is 00:00:00 cause it's an old entry from old times where there where no stamps yet
-					str_format(aBuf, sizeof(aBuf), "Time: %d min %.2f sec, don't know how long ago", (int)(Time/60), Time-((int)Time/60*60));
-				else					
-					str_format(aBuf, sizeof(aBuf), "Time: %d min %.2f sec, %s ago", (int)(Time/60), Time-((int)Time/60*60),agoString);
+				if(pData->m_Search)
+				{
+					if(pStamp == 0) // stamp is 00:00:00 cause it's an old entry from old times where there where no stamps yet
+						str_format(aBuf, sizeof(aBuf), "%d min %.2f sec, don't know how long ago", (int)(pTime/60), pTime-((int)pTime/60*60));
+					else					
+						str_format(aBuf, sizeof(aBuf), "%s ago, %d min %.2f sec", pAgoString,(int)(pTime/60), pTime-((int)pTime/60*60));
+				}
+				else
+				{
+					if(pStamp == 0) // stamp is 00:00:00 cause it's an old entry from old times where there where no stamps yet
+						str_format(aBuf, sizeof(aBuf), "%s, %d m %.2f s, don't know when", pData->m_pSqlData->m_pResults->getString("Name").c_str(), (int)(pTime/60), pTime-((int)pTime/60*60));
+					else					
+						str_format(aBuf, sizeof(aBuf), "%s, %s ago, %d m %.2f s", pData->m_pSqlData->m_pResults->getString("Name").c_str(), pAgoString, (int)(pTime/60), pTime-((int)pTime/60*60));
+				}
 				pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, aBuf);
 			}
-			pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, "------------------------------------");
+			pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, "----------------------------------------------------");
 
 			dbg_msg("SQL", "Showing times done");
 
@@ -574,11 +597,10 @@ void CSqlScore::ShowTimesThread(void *pUser)
 			dbg_msg("SQL", aBuf);
 			dbg_msg("SQL", "ERROR: Could not show times");
 		}
-
+end:
 		// disconnect from database
 		pData->m_pSqlData->Disconnect();
 	}
-
 	delete pData;
 
 	lock_release(gs_SqlLock);
@@ -597,6 +619,21 @@ void CSqlScore::ShowTop5(int ClientID, int Debut)
 #endif
 }
 
+
+void CSqlScore::ShowTimes(int ClientID, int Debut)
+{
+	CSqlScoreData *Tmp = new CSqlScoreData();
+	Tmp->m_Num = Debut;
+	Tmp->m_ClientID = ClientID;
+	Tmp->m_pSqlData = this;
+	Tmp->m_Search = false;
+
+	void *TimesThread = thread_create(ShowTimesThread, Tmp);
+	#if defined(CONF_FAMILY_UNIX)
+		pthread_detach((pthread_t)TimesThread);
+	#endif	
+}
+
 void CSqlScore::ShowTimes(int ClientID, const char* pName, int Debut)
 {
 	CSqlScoreData *Tmp = new CSqlScoreData();
@@ -604,7 +641,8 @@ void CSqlScore::ShowTimes(int ClientID, const char* pName, int Debut)
 	Tmp->m_ClientID = ClientID;
 	str_copy(Tmp->m_aName, pName, sizeof(Tmp->m_aName));
 	Tmp->m_pSqlData = this;
-
+	Tmp->m_Search = true;
+	
 	void *TimesThread = thread_create(ShowTimesThread, Tmp);
 	#if defined(CONF_FAMILY_UNIX)
 		pthread_detach((pthread_t)TimesThread);

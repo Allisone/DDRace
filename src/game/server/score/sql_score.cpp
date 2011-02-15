@@ -388,70 +388,6 @@ void CSqlScore::ShowRankThread(void *pUser)
 	lock_release(gs_SqlLock);
 }
 
-void CSqlScore::agoTimeToString(int agoTime, char agoString[]){
-	char aBuf[20];
-	int times[7] = {
-		60 * 60 * 24 * 365 ,
-		60 * 60 * 24 * 30 ,
-		60 * 60 * 24 * 7,
-		60 * 60 * 24 ,
-		60 * 60 ,
-		60 ,
-		1
-	};
-	char names[7][6] = {
-		"year",
-		"month",
-		"week",
-		"day",
-		"hour",
-		"min",
-		"sec"
-	};
-
-	int seconds = 0;
-	char name[6];
-	int count = 0;
-	int i = 0;
-
-	// finding biggest match
-	for(i = 0; i<7; i++){
-		seconds = times[i];
-		strcpy(name,names[i]);
-
-		count = floor(agoTime/seconds);
-		if(count != 0){
-			break;
-		}
-	}
-
-	if(count == 1){
-		str_format(aBuf, sizeof(aBuf), "%d %s", 1 , name);
-	}else{
-		str_format(aBuf, sizeof(aBuf), "%d %ss", count , name);
-	}
-	strcat(agoString,aBuf);
-
-	if (i + 1 < 7) {
-		// getting second piece now
-		int seconds2 = times[i+1];
-		char name2[6];
-		strcpy(name2,names[i+1]);
-
-		// add second piece if it's greater than 0
-		int count2 = floor((agoTime - (seconds * count)) / seconds2);
-
-		if (count2 != 0) {
-			if(count2 == 1){
-				str_format(aBuf, sizeof(aBuf), " and %d %s", 1 , name2);
-			}else{
-				str_format(aBuf, sizeof(aBuf), " and %d %ss", count2 , name2);
-			}
-			strcat(agoString,aBuf);
-		}
-	}
-}
-
 void CSqlScore::ShowRank(int ClientID, const char* pName, bool Search)
 {
 	CSqlScoreData *Tmp = new CSqlScoreData();
@@ -534,12 +470,11 @@ void CSqlScore::ShowTimesThread(void *pUser)
 			strcpy(originalName,pData->m_aName);
 			pData->m_pSqlData->ClearString(pData->m_aName);
 			
-			// check sort methode
 			char aBuf[512];
 
-			if(pData->m_Search)
+			if(pData->m_Search) // last 5 times of a player
 				str_format(aBuf, sizeof(aBuf), "SELECT Time, UNIX_TIMESTAMP(CURRENT_TIMESTAMP)-UNIX_TIMESTAMP(Timestamp) as Ago, UNIX_TIMESTAMP(Timestamp) as Stamp FROM %s_%s_race WHERE Name = '%s' ORDER BY Ago ASC LIMIT %d, 5;", pData->m_pSqlData->m_pPrefix, pData->m_pSqlData->m_aMap, pData->m_aName, pData->m_Num-1);
-			else
+			else // last 5 times of server
 				str_format(aBuf, sizeof(aBuf), "SELECT Name, Time, UNIX_TIMESTAMP(CURRENT_TIMESTAMP)-UNIX_TIMESTAMP(Timestamp) as Ago, UNIX_TIMESTAMP(Timestamp) as Stamp FROM %s_%s_race ORDER BY Ago ASC LIMIT %d, 5;", pData->m_pSqlData->m_pPrefix, pData->m_pSqlData->m_aMap, pData->m_Num-1);
 
 			pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);
@@ -566,14 +501,14 @@ void CSqlScore::ShowTimesThread(void *pUser)
 
 				agoTimeToString(pSince,pAgoString);								
 				
-				if(pData->m_Search)
+				if(pData->m_Search) // last 5 times of a player
 				{
 					if(pStamp == 0) // stamp is 00:00:00 cause it's an old entry from old times where there where no stamps yet
 						str_format(aBuf, sizeof(aBuf), "%d min %.2f sec, don't know how long ago", (int)(pTime/60), pTime-((int)pTime/60*60));
 					else					
 						str_format(aBuf, sizeof(aBuf), "%s ago, %d min %.2f sec", pAgoString,(int)(pTime/60), pTime-((int)pTime/60*60));
 				}
-				else
+				else // last 5 times of the server
 				{
 					if(pStamp == 0) // stamp is 00:00:00 cause it's an old entry from old times where there where no stamps yet
 						str_format(aBuf, sizeof(aBuf), "%s, %d m %.2f s, don't know when", pData->m_pSqlData->m_pResults->getString("Name").c_str(), (int)(pTime/60), pTime-((int)pTime/60*60));
@@ -682,6 +617,70 @@ void CSqlScore::NormalizeMapname(char *pString) {
 	for(int i=0;i<str_length(pString);i++) {
 		if(validChars.find(pString[i]) == std::string::npos) {
 			pString[i] = '_';
+		}
+	}
+}
+
+void CSqlScore::agoTimeToString(int agoTime, char agoString[]){
+	char aBuf[20];
+	int times[7] = {
+		60 * 60 * 24 * 365 ,
+		60 * 60 * 24 * 30 ,
+		60 * 60 * 24 * 7,
+		60 * 60 * 24 ,
+		60 * 60 ,
+		60 ,
+		1
+	};
+	char names[7][6] = {
+		"year",
+		"month",
+		"week",
+		"day",
+		"hour",
+		"min",
+		"sec"
+	};
+
+	int seconds = 0;
+	char name[6];
+	int count = 0;
+	int i = 0;
+
+	// finding biggest match
+	for(i = 0; i<7; i++){
+		seconds = times[i];
+		strcpy(name,names[i]);
+
+		count = floor(agoTime/seconds);
+		if(count != 0){
+			break;
+		}
+	}
+
+	if(count == 1){
+		str_format(aBuf, sizeof(aBuf), "%d %s", 1 , name);
+	}else{
+		str_format(aBuf, sizeof(aBuf), "%d %ss", count , name);
+	}
+	strcat(agoString,aBuf);
+
+	if (i + 1 < 7) {
+		// getting second piece now
+		int seconds2 = times[i+1];
+		char name2[6];
+		strcpy(name2,names[i+1]);
+
+		// add second piece if it's greater than 0
+		int count2 = floor((agoTime - (seconds * count)) / seconds2);
+
+		if (count2 != 0) {
+			if(count2 == 1){
+				str_format(aBuf, sizeof(aBuf), " and %d %s", 1 , name2);
+			}else{
+				str_format(aBuf, sizeof(aBuf), " and %d %ss", count2 , name2);
+			}
+			strcat(agoString,aBuf);
 		}
 	}
 }

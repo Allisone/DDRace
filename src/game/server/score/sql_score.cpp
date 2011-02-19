@@ -554,7 +554,6 @@ void CSqlScore::ShowTop5(int ClientID, int Debut)
 #endif
 }
 
-
 void CSqlScore::ShowTimes(int ClientID, int Debut)
 {
 	CSqlScoreData *Tmp = new CSqlScoreData();

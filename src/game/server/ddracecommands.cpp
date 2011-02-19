@@ -568,7 +568,7 @@ void CGameContext::ConSettings(IConsole::IResult *pResult, void *pUserData, int 
 		}
 		else if(str_comp(pArg, "teams") == 0)
 		{
-			str_format(aBuf, sizeof(aBuf), "%s %s", !g_Config.m_SvTeam?"Teams are available on this server":g_Config.m_SvTeam==-1?"Teams are not available on this server":"You have to be in a team to play on this server", !g_Config.m_SvTeamStrict?"and if you die in a team only you die":"and if you die in a team all of you die");
+			str_format(aBuf, sizeof(aBuf), "%s %s", g_Config.m_SvTeam == 1 ? "Teams are available on this server" : !g_Config.m_SvTeam ? "Teams are not available on this server" : "You have to be in a team to play on this server", !g_Config.m_SvTeamStrict ? "and if you die in a team only you die" : "and if you die in a team all of you die");
 			pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", aBuf);
 		}
 		else if(str_comp(pArg, "collision") == 0)
@@ -622,66 +622,66 @@ void CGameContext::ConRules(IConsole::IResult *pResult, void *pUserData, int Cli
 {
 	CGameContext *pSelf = (CGameContext *)pUserData;
 
-	bool printed=false;
+	bool Printed = false;
 	if(g_Config.m_SvDDRaceRules)
 	{
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "No blocking.");
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "No insulting / spamming.");
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "No fun voting / vote spamming.");
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "Breaking any of these rules will result in a penalty, decided by server admins.");
-		printed=true;
+		Printed = true;
 	}
 	if(g_Config.m_SvRulesLine1[0])
 	{
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", g_Config.m_SvRulesLine1);
-		printed=true;
+		Printed = true;
 	}
 	if(g_Config.m_SvRulesLine2[0])
 	{
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", g_Config.m_SvRulesLine2);
-		printed=true;
+		Printed = true;
 	}
 	if(g_Config.m_SvRulesLine3[0])
 	{
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", g_Config.m_SvRulesLine3);
-		printed=true;
+		Printed = true;
 	}
 	if(g_Config.m_SvRulesLine4[0])
 	{
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", g_Config.m_SvRulesLine4);
-		printed=true;
+		Printed = true;
 	}
 	if(g_Config.m_SvRulesLine5[0])
 	{
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", g_Config.m_SvRulesLine5);
-		printed=true;
+		Printed = true;
 	}
 	if(g_Config.m_SvRulesLine6[0])
 	{
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", g_Config.m_SvRulesLine6);
-		printed=true;
+		Printed = true;
 	}
 	if(g_Config.m_SvRulesLine7[0])
 	{
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", g_Config.m_SvRulesLine7);
-		printed=true;
+		Printed = true;
 	}
 	if(g_Config.m_SvRulesLine8[0])
 	{
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", g_Config.m_SvRulesLine8);
-		printed=true;
+		Printed=true;
 	}
 	if(g_Config.m_SvRulesLine9[0])
 	{
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", g_Config.m_SvRulesLine9);
-		printed=true;
+		Printed=true;
 	}
 	if(g_Config.m_SvRulesLine10[0])
 	{
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", g_Config.m_SvRulesLine10);
-		printed=true;
+		Printed = true;
 	}
-	if(!printed)
+	if(!Printed)
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "No Rules Defined, Kill em all!!");
 }
 
@@ -690,7 +690,7 @@ void CGameContext::ConKill(IConsole::IResult *pResult, void *pUserData, int Clie
 	CGameContext *pSelf = (CGameContext *)pUserData;
 	CPlayer *pPlayer = pSelf->m_apPlayers[ClientID];
 
-	if(pPlayer->m_Last_Kill && pPlayer->m_Last_Kill + pSelf->Server()->TickSpeed() * g_Config.m_SvKillDelay > pSelf->Server()->Tick())
+	if(!pPlayer || (pPlayer->m_Last_Kill && pPlayer->m_Last_Kill + pSelf->Server()->TickSpeed() * g_Config.m_SvKillDelay > pSelf->Server()->Tick()))
 		return;
 
 	pPlayer->m_Last_Kill = pSelf->Server()->Tick();
@@ -703,6 +703,8 @@ void CGameContext::ConTogglePause(IConsole::IResult *pResult, void *pUserData, i
 	CGameContext *pSelf = (CGameContext *)pUserData;
 
 	CPlayer *pPlayer = pSelf->m_apPlayers[ClientID];
+	if(!pPlayer)
+		return;
 
 	if(g_Config.m_SvPauseable)
 	{
@@ -740,6 +742,8 @@ void CGameContext::ConTop5(IConsole::IResult *pResult, void *pUserData, int Clie
 	CGameContext *pSelf = (CGameContext *)pUserData;
 
 	CPlayer *pPlayer = pSelf->m_apPlayers[ClientID];
+	if(!pPlayer)
+		return;
 
 	if(g_Config.m_SvHideScore)
 	{
@@ -747,11 +751,12 @@ void CGameContext::ConTop5(IConsole::IResult *pResult, void *pUserData, int Clie
 		return;
 	}
 
-	if(pResult->NumArguments() > 0)
-		pSelf->Score()->ShowTop5(pPlayer->GetCID(), pResult->GetInteger(0));
-	else
-		pSelf->Score()->ShowTop5(pPlayer->GetCID());
+		if(pResult->NumArguments() > 0)
+			pSelf->Score()->ShowTop5(pPlayer->GetCID(), pResult->GetInteger(0));
+		else
+			pSelf->Score()->ShowTop5(pPlayer->GetCID());
 }
+
 #if defined(CONF_SQL)
 void CGameContext::ConTimes(IConsole::IResult *pResult, void *pUserData, int ClientID)
 {
@@ -796,6 +801,8 @@ void CGameContext::ConRank(IConsole::IResult *pResult, void *pUserData, int Clie
 	CGameContext *pSelf = (CGameContext *)pUserData;
 
 	CPlayer *pPlayer = pSelf->m_apPlayers[ClientID];
+	if(!pPlayer)
+		return;
 
 	if(/*g_Config.m_SvSpamprotection && */pPlayer->m_Last_Chat && pPlayer->m_Last_Chat + pSelf->Server()->TickSpeed() + g_Config.m_SvChatDelay > pSelf->Server()->Tick())
 		return;
@@ -816,16 +823,18 @@ void CGameContext::ConJoinTeam(IConsole::IResult *pResult, void *pUserData, int 
 
 	CGameContext *pSelf = (CGameContext *)pUserData;
 	CGameControllerDDRace* Controller = (CGameControllerDDRace*)pSelf->m_pController;
-	if(g_Config.m_SvTeam == -1)
+	if(g_Config.m_SvTeam == 0)
 	{
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "Admin disable teams");
 		return;
 	}
-	else if (g_Config.m_SvTeam == 1)
+	else if(g_Config.m_SvTeam == 2)
 	{
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "You must join to any team and play with anybody or you will not play");
 	}
 	CPlayer *pPlayer = pSelf->m_apPlayers[ClientID];
+	if(!pPlayer)
+		return;
 
 	if(pResult->NumArguments() > 0)
 	{
@@ -897,9 +906,13 @@ void CGameContext::ConJoinTeam(IConsole::IResult *pResult, void *pUserData, int 
 void CGameContext::ConToggleFly(IConsole::IResult *pResult, void *pUserData, int ClientID)
 {
 	CGameContext *pSelf = (CGameContext *)pUserData;
-
-	CCharacter* pChr = pSelf->m_apPlayers[ClientID]->GetCharacter();
-	if(pChr && pChr->m_Super)
+	CPlayer *pPlayer = pSelf->m_apPlayers[ClientID];
+	if(!pPlayer)
+		return;
+	CCharacter* pChr = pPlayer->GetCharacter();
+	if(!pChr)
+		return;
+	if(pChr->m_Super)
 	{
 		pChr->m_Fly = !pChr->m_Fly;
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", (pChr->m_Fly) ? "Fly enabled" : "Fly disabled");
@@ -922,30 +935,41 @@ void CGameContext::ConToggleEyeEmote(IConsole::IResult *pResult, void *pUserData
 {
 	CGameContext *pSelf = (CGameContext *)pUserData;
 
-	CCharacter *pChr = pSelf->m_apPlayers[ClientID]->GetCharacter();
+	CPlayer *pPlayer = pSelf->m_apPlayers[ClientID];
+	if(!pPlayer)
+		return;
+	CCharacter* pChr = pPlayer->GetCharacter();
+	if(!pChr)
+		return;
 
-	if(pChr)
-	{
-		pChr->m_EyeEmote = !pChr->m_EyeEmote;
-		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", (pChr->m_EyeEmote) ? "You can now use the preset eye emotes." : "You don't have any eye emotes, remember to bind some. (until you die)");
-	}
+	pChr->m_EyeEmote = !pChr->m_EyeEmote;
+	pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", (pChr->m_EyeEmote) ? "You can now use the preset eye emotes." : "You don't have any eye emotes, remember to bind some. (until you die)");
 }
 
 void CGameContext::ConToggleBroadcast(IConsole::IResult *pResult, void *pUserData, int ClientID)
 {
 	CGameContext *pSelf = (CGameContext *)pUserData;
 
-	CCharacter *pChr = pSelf->m_apPlayers[ClientID]->GetCharacter();
+	CPlayer *pPlayer = pSelf->m_apPlayers[ClientID];
+	if(!pPlayer)
+		return;
+	CCharacter* pChr = pPlayer->GetCharacter();
+	if(!pChr)
+		return;
 
-	if(pChr)
-		pChr->m_BroadCast = !pChr->m_BroadCast;
+	pChr->m_BroadCast = !pChr->m_BroadCast;
 }
 
 void CGameContext::ConEyeEmote(IConsole::IResult *pResult, void *pUserData, int ClientID)
 {
 	CGameContext *pSelf = (CGameContext *)pUserData;
 
-	CCharacter *pChr = pSelf->m_apPlayers[ClientID]->GetCharacter();
+	CPlayer *pPlayer = pSelf->m_apPlayers[ClientID];
+	if(!pPlayer)
+		return;
+	CCharacter* pChr = pPlayer->GetCharacter();
+	if(!pChr)
+		return;
 
 	if (pResult->NumArguments() == 0)
 	{
@@ -985,9 +1009,12 @@ void CGameContext::ConEyeEmote(IConsole::IResult *pResult, void *pUserData, int 
 void CGameContext::ConShowOthers(IConsole::IResult *pResult, void *pUserData, int ClientID)
 {
 	CGameContext *pSelf = (CGameContext *)pUserData;
+	CPlayer *pPlayer = pSelf->m_apPlayers[ClientID];
+	if(!pPlayer)
+		return;
 
-	if(pSelf->m_apPlayers[ClientID]->m_IsUsingDDRaceClient)
-		pSelf->m_apPlayers[ClientID]->m_ShowOthers = !pSelf->m_apPlayers[ClientID]->m_ShowOthers;
+	if(pPlayer->m_IsUsingDDRaceClient)
+		pPlayer->m_ShowOthers = !pPlayer->m_ShowOthers;
 	else
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "Showing players from other teams is only available with DDRace Client, http://DDRace.info");
 }
@@ -1000,7 +1027,10 @@ void CGameContext::ConAsk(IConsole::IResult *pResult, void *pUserData, int Clien
 	const char *Name = pResult->GetString(0);
 	int Matches = 0;
 	int Victim = -1;
-	CCharacter* pAsker = pSelf->m_apPlayers[ClientID]->GetCharacter();
+	CPlayer *pPlayer = pSelf->m_apPlayers[ClientID];
+	if(!pPlayer)
+		return;
+	CCharacter* pAsker = pPlayer->GetCharacter();
 	CCharacter* pVictim = 0;
 
 	for(int i = 0; i < MAX_CLIENTS; i++)
@@ -1080,8 +1110,8 @@ void CGameContext::ConYes(IConsole::IResult *pResult, void *pUserData, int Clien
 	CServer* pServ = (CServer*)pSelf->Server();
 	CGameControllerDDRace* Controller = (CGameControllerDDRace*)pSelf->m_pController;
 	char aBuf[512];
-	if((pSelf->m_apPlayers[ClientID]->m_Asker == -1 || pSelf->m_apPlayers[ClientID]->m_Asker != -1) && pSelf->m_apPlayers[ClientID]->m_AskedTick + g_Config.m_SvTeamAskTime > pSelf->Server()->Tick() )
-		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "No valid questions, maybe they timed out.");
+	if(pSelf->m_apPlayers[ClientID]->m_Asker == -1 || (pSelf->m_apPlayers[ClientID]->m_Asker != -1 && pSelf->m_apPlayers[ClientID]->m_AskedTick + g_Config.m_SvTeamAskTime * pSelf->Server()->TickSpeed() < pSelf->Server()->Tick()) )
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "Couldn't find a valid question, maybe it timed out.");
 	else
 	{
 		str_format(aBuf, sizeof(aBuf), "\'%s\' has accepted your request.", pServ->ClientName(ClientID));
@@ -1124,8 +1154,8 @@ void CGameContext::ConNo(IConsole::IResult *pResult, void *pUserData, int Client
 	CGameContext *pSelf = (CGameContext *)pUserData;
 	CServer* pServ = (CServer*)pSelf->Server();
 	char aBuf[512];
-	if((pSelf->m_apPlayers[ClientID]->m_Asker == -1 || pSelf->m_apPlayers[ClientID]->m_Asker != -1) && pSelf->m_apPlayers[ClientID]->m_AskedTick + g_Config.m_SvTeamAskTime > pSelf->Server()->Tick() )
-		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "No valid question, maybe it timed out.");
+	if(pSelf->m_apPlayers[ClientID]->m_Asker == -1 || (pSelf->m_apPlayers[ClientID]->m_Asker != -1 && pSelf->m_apPlayers[ClientID]->m_AskedTick + g_Config.m_SvTeamAskTime * pSelf->Server()->TickSpeed() < pSelf->Server()->Tick()))
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "Couldn't find a valid question, maybe it timed out.");
 	else
 	{
 		str_format(aBuf, sizeof(aBuf), "\'%s\' has rejected your request.", pServ->ClientName(ClientID));
@@ -1151,7 +1181,10 @@ void CGameContext::ConInvite(IConsole::IResult *pResult, void *pUserData, int Cl
 	const char *Name = pResult->GetString(0);
 	int Matches = 0;
 	int Victim = -1;
-	CCharacter* pAsker = pSelf->m_apPlayers[ClientID]->GetCharacter();
+	CPlayer *pPlayer = pSelf->m_apPlayers[ClientID];
+	if(!pPlayer)
+		return;
+	CCharacter* pAsker = pPlayer->GetCharacter();
 	CCharacter* pVictim = 0;
 
 	for(int i = 0; i < MAX_CLIENTS; i++)
@@ -1195,8 +1228,8 @@ void CGameContext::ConInvite(IConsole::IResult *pResult, void *pUserData, int Cl
 	{
 		pSelf->m_apPlayers[Victim]->m_Asker = ClientID;
 		pSelf->m_apPlayers[Victim]->m_AskedTick = pSelf->Server()->Tick();
-		pSelf->m_apPlayers[ClientID]->m_Asked = Victim;
-		pSelf->m_apPlayers[ClientID]->m_AskerTick = pSelf->Server()->Tick();
+		pPlayer->m_Asked = Victim;
+		pPlayer->m_AskerTick = pSelf->Server()->Tick();
 		char aTempBuf[512];
 		str_format(aTempBuf, sizeof(aTempBuf), "Do you want to join \'%s\' \'s team?", pServ->ClientName(ClientID));
 		pSelf->SendChatTarget(Victim, aTempBuf);
@@ -1206,6 +1239,34 @@ void CGameContext::ConInvite(IConsole::IResult *pResult, void *pUserData, int Cl
 	}
 	else
 		str_format(aBuf, sizeof(aBuf), "hmm, i don't know why but you are not allowed to ask this player");
+	pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", aBuf);
+	return;
+}
+
+void CGameContext::ConToggleStrict(IConsole::IResult *pResult, void *pUserData, int ClientID)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	CGameControllerDDRace* Controller = (CGameControllerDDRace*)pSelf->m_pController;
+	CPlayer *pPlayer = pSelf->m_apPlayers[ClientID];
+	if(!pPlayer)
+		return;
+	CCharacter* pChr = pPlayer->GetCharacter();
+	if(!pChr)
+		return;
+	char aBuf[512];
+
+	if(!pChr || !pChr->IsAlive())
+		str_format(aBuf, sizeof(aBuf), "You can\'t while you are dead.");
+	else if(pChr->Team() == 0)
+		str_format(aBuf, sizeof(aBuf), "You are in team %d, that can't be strict!", pChr->Team());
+	else if(pChr->Team() && ClientID != Controller->m_Teams.GetTeamLeader(pChr->Team()))
+		str_format(aBuf, sizeof(aBuf), "You are not the leader of team %, you can't change it's strictness.", pChr->Team());
+	else
+	{
+		Controller->m_Teams.ToggleStrictness(pChr->Team());
+		str_format(aBuf, sizeof(aBuf), "Done.", pChr->Team());
+	}
+
 	pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", aBuf);
 	return;
 }

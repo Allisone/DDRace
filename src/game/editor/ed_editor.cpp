@@ -3274,8 +3274,8 @@ void CEditorMap::CreateDefault(int EntitiesTexture)
 	CLayerQuads *pLayer = new CLayerQuads;
 	pLayer->m_pEditor = m_pEditor;
 	CQuad *pQuad = pLayer->NewQuad();
-	const int Width = 800000;
-	const int Height = 600000;
+	const int Width = 3200000;
+	const int Height = 2400000;
 	pQuad->m_aPoints[0].x = pQuad->m_aPoints[2].x = -Width;
 	pQuad->m_aPoints[1].x = pQuad->m_aPoints[3].x = Width;
 	pQuad->m_aPoints[0].y = pQuad->m_aPoints[1].y = -Height;
@@ -3291,9 +3291,8 @@ void CEditorMap::CreateDefault(int EntitiesTexture)
 	// add game layer and front and reset the tele, speedup and switch layer pointers
 	MakeGameGroup(NewGroup());
 	MakeGameLayer(new CLayerGame(50, 50));
-	MakeFrontLayer(new CLayerFront(50, 50));
 	m_pGameGroup->AddLayer(m_pGameLayer);
-	m_pGameGroup->AddLayer(m_pFrontLayer);
+	m_pFrontLayer = 0x0;
 	m_pTeleLayer = 0x0;
 	m_pSpeedupLayer = 0x0;
 	m_pSwitchLayer = 0x0;

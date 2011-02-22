@@ -73,6 +73,11 @@ void IGameController::EvaluateSpawnType(CSpawnEval *pEval, int T)
 	// get spawn point
 	for(int i  = 0; i < m_aNumSpawnPoints[T]; i++)
 	{
+/*
+		// check if the position is occupado
+		if(GameServer()->m_World.FindEntities(m_aaSpawnPoints[T][i], 64, 0, 1, CGameWorld::ENTTYPE_CHARACTER))
+			continue;
+*/
 		vec2 P = m_aaSpawnPoints[T][i];
 		float S = EvaluateSpawnPos(pEval, P);
 		if(!pEval->m_Got || pEval->m_Score > S)
@@ -89,7 +94,7 @@ bool IGameController::CanSpawn(CPlayer *pPlayer, vec2 *pOutPos)
 	CSpawnEval Eval;
 	
 	// spectators can't spawn
-	if(pPlayer->GetTeam() == TEAM_SPECTATORS)
+	if(Team  == TEAM_SPECTATORS)
 		return false;
 	
 	/*if(IsTeamplay())
@@ -537,7 +542,7 @@ void IGameController::DoWarmup(int Seconds)
 		m_Warmup = Seconds*Server()->TickSpeed();
 }
 /*
-bool IGameController::IsFriendlyFire(int Cid1, int Cid2)
+bool IGameController::IsFriendlyFire(int ClientID1, int ClientID2)
 {
 	if(Cid1 == Cid2)
 		return false;

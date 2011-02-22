@@ -27,7 +27,7 @@ CPlayer::CPlayer(CGameContext *pGameServer, int CID, int Team)
 	m_ChatScore = 0;
 	m_PauseInfo.m_Respawn = false;
 	
-	GameServer()->Score()->PlayerData(CID)->Reset();
+	GameServer()->Score()->PlayerData(ClientID)->Reset();
 	
 	m_Invisible = false;
 	m_IsUsingDDRaceClient = false;
@@ -42,6 +42,10 @@ CPlayer::CPlayer(CGameContext *pGameServer, int CID, int Team)
 CPlayer::~CPlayer()
 {
 	if(Character) Character->Destroy();
+/*
+	delete Character;
+	Character = 0;
+*/
 }
 
 void CPlayer::Tick()
@@ -137,6 +141,7 @@ void CPlayer::Snap(int SnappingClient)
 
 void CPlayer::OnDisconnect()
 {
+
 	KillCharacter();
 
 	if(Server()->ClientIngame(m_ClientID))
@@ -148,6 +153,8 @@ void CPlayer::OnDisconnect()
 		str_format(aBuf, sizeof(aBuf), "leave player='%d:%s'", m_ClientID, Server()->ClientName(m_ClientID));
 		GameServer()->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "game", aBuf);
 	}
+	CGameControllerDDRace* Controller = (CGameControllerDDRace*)GameServer()->m_pController;
+	Controller->m_Teams.m_Core.Team(m_ClientID, 0);
 }
 
 void CPlayer::OnPredictedInput(CNetObj_PlayerInput *NewInput)
@@ -235,22 +242,15 @@ void CPlayer::TryRespawn()
 	}
 	else
 	{
-		vec2 SpawnPos = vec2(100.0f, -60.0f);
+		vec2 SpawnPos;
 	
-		if(!GameServer()->m_pController->CanSpawn(this, &SpawnPos))
+		if(!GameServer()->m_pController->CanSpawn(m_Team, &SpawnPos))
 			return;
 
-		// check if the position is occupado
-		CEntity *apEnts[2] = {0};
-		int NumEnts = GameServer()->m_World.FindEntities(SpawnPos, 64, apEnts, 2, CGameWorld::ENTTYPE_CHARACTER);
-	
-		if(NumEnts < 3)
-		{
-			m_Spawning = false;
-			Character = new(m_ClientID) CCharacter(&GameServer()->m_World);
-			Character->Spawn(this, SpawnPos);
-			GameServer()->CreatePlayerSpawn(SpawnPos);
-		} 
+		m_Spawning = false;
+		Character = new(m_ClientID) CCharacter(&GameServer()->m_World);
+		Character->Spawn(this, SpawnPos);
+		GameServer()->CreatePlayerSpawn(SpawnPos);
 	}
 }
 

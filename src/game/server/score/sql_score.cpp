@@ -449,10 +449,11 @@ void CSqlScore::UpdateDBVersion(char *pFromVersion){
 void CSqlScore::InitVarsFromDB()
 {
 	CServer* pServ = (CServer *)m_pServer;
-	char pMapCrc[8];
-	char aBuf[512];
+	char pMapCrc[9];
+	char aBuf[1024];
 	str_format(pMapCrc, sizeof(pMapCrc), "%08x", pServ->m_CurrentMapCrc);
 	int ignoreCRCsSmallerThan = 0;
+	str_format(m_usedMapCRCIDs, sizeof(m_usedMapCRCIDs), "");
 	
 	// 3 possibilties: 
 	// 1. Map is completly new		= new mapID, new CRCID
@@ -460,16 +461,19 @@ void CSqlScore::InitVarsFromDB()
 	// 3. Map known and CRC old		= old mapID, old CRCID
 	
 	// Check 1.: Map is completly new
+	dbg_msg("SQL","Check 1.: Map is completly new");
 	str_format(aBuf, sizeof(aBuf), "SELECT ID, IgnoreRunsBeforeMapCRCID FROM %s_maps WHERE Name = '%s' LIMIT 0, 1;", m_pDDRaceTablesPrefix, m_aMap);
 	m_pResults = m_pStatement->executeQuery(aBuf);	
 	if(m_pResults->rowsCount() < 1)
 	{	// 1. is true: Map is completly new
 
-		// Create new Map entry			
+		// Create new Map entry		
+		dbg_msg("SQL","Create new Map entry");
 		str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_maps(ID,Name) VALUES (NULL,'%s');", m_pDDRaceTablesPrefix, m_aMap);
 		m_pStatement->execute(aBuf);
 
 		// and get that ID
+		dbg_msg("SQL","and get that ID");		
 		str_format(aBuf, sizeof(aBuf), "SELECT LAST_INSERT_ID() as ID;", m_pDDRaceTablesPrefix, m_aMap);
 		m_pResults = m_pStatement->executeQuery(aBuf);
 		while (m_pResults->next()) 
@@ -479,7 +483,7 @@ void CSqlScore::InitVarsFromDB()
 	}
 	else
 	{	// 2. or 3. is true: Map is known
-		
+		dbg_msg("SQL"," 2. or 3. is true: Map is known");
 		m_pResults->next();
 		m_aMapSQLID = m_pResults->getInt("ID");
 		ignoreCRCsSmallerThan = m_pResults->getInt("IgnoreRunsBeforeMapCRCID"); // get old value
@@ -487,16 +491,19 @@ void CSqlScore::InitVarsFromDB()
 	// Now we have a map ID for sure, still don't know whats about the CRC
 
 	// Check 2. vs. 3.: Map known but new CRC vs. Map is not new
+	dbg_msg("SQL","Check 2. vs. 3.: Map known but new CRC vs. Map is not new");	
 	str_format(aBuf, sizeof(aBuf), "SELECT ID FROM %s_map_crcs WHERE MapID = '%d' AND CRC = '%s' LIMIT 0, 1;", m_pDDRaceTablesPrefix, m_aMapSQLID, pMapCrc);
 	m_pResults = m_pStatement->executeQuery(aBuf);
 	if(m_pResults->rowsCount() < 1)
 	{	// 2. is true: Map known but new CRC
 		
 		// Create new CRC entry	
+		dbg_msg("SQL","Create new CRC entry");			
 		str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_map_crcs(ID,MapID,CRC,TimeOfIntroduction) VALUES (NULL,'%d','%s',CURRENT_TIMESTAMP());", m_pDDRaceTablesPrefix, m_aMapSQLID, pMapCrc);
 		m_pStatement->execute(aBuf);
 		
 		// and get that ID
+		dbg_msg("SQL","SELECT LAST_INSERT_ID() AS ID;");					
 		str_format(aBuf, sizeof(aBuf), "SELECT LAST_INSERT_ID() AS ID;", m_pDDRaceTablesPrefix, m_aMap);
 		m_pResults = m_pStatement->executeQuery(aBuf);
 		while (m_pResults->next()) 
@@ -505,6 +512,7 @@ void CSqlScore::InitVarsFromDB()
 		}	
 		// TODO: Maybe give possibility to set this to newest CRC always
 		if(ignoreCRCsSmallerThan == 0){
+			dbg_msg("SQL","UPDATE %s_maps SET IgnoreRunsBeforeMapCRCID=LAST_INSERT_ID() WHERE ID = %d;");				
 			str_format(aBuf, sizeof(aBuf), "UPDATE %s_maps SET IgnoreRunsBeforeMapCRCID=LAST_INSERT_ID() WHERE ID = %d;", m_pDDRaceTablesPrefix, m_aMapSQLID, pMapCrc);
 			m_pStatement->execute(aBuf);
 			ignoreCRCsSmallerThan = m_aMapCRCSQLID;
@@ -516,7 +524,9 @@ void CSqlScore::InitVarsFromDB()
 		m_pResults->next();
 		m_aMapCRCSQLID = m_pResults->getInt("ID");
 	}	
+	dbg_msg("SQL","Get CRC ID");					
 	
+	// Get CRC ID
 	str_format(aBuf, sizeof(aBuf), 
 		"SELECT crcs.ID as CRCID FROM "
 		"(SELECT * FROM %s_maps WHERE ID = %d) as maps "
@@ -525,21 +535,24 @@ void CSqlScore::InitVarsFromDB()
 		"WHERE crcs.ID >= maps.IgnoreRunsBeforeMapCRCID;", m_pDDRaceTablesPrefix, m_aMapSQLID, m_pDDRaceTablesPrefix);
 	m_pResults = m_pStatement->executeQuery(aBuf);
 	
-	char pIDasString[7];
+	char pCRCIDasString[10];
 	while (m_pResults->next()) 
 	{
-		str_format(pIDasString,sizeof(pIDasString),"%d", m_pResults->getInt("CRCID"));
-		strcat(m_usedMapCRCIDs, pIDasString);
+		dbg_msg("SQL","Concat CRC IDs");		
+		str_format(pCRCIDasString,sizeof(pCRCIDasString),"%d", m_pResults->getInt("CRCID"));
+		strcat(m_usedMapCRCIDs, pCRCIDasString);
 		if(!m_pResults->isLast())
 			strcat(m_usedMapCRCIDs,", ");
 	}
-		
+	dbg_msg("SQL","get the best time");		
 	// get the best time
 	str_format(aBuf, sizeof(aBuf), "SELECT min(Time) as Time FROM `%s_runs` WHERE MapCRCID IN (%s)", m_pDDRaceTablesPrefix, m_usedMapCRCIDs);
+	dbg_msg("SQL",aBuf);
 	m_pResults = m_pStatement->executeQuery(aBuf);
-
+	dbg_msg("SQL","exectued");
 	if(m_pResults->next())
 	{
+		dbg_msg("SQL","get Time");
 		((CGameControllerDDRace*)GameServer()->m_pController)->m_CurrentRecord = (float)m_pResults->getDouble("Time");		
 		dbg_msg("SQL", "Getting best time on server done");			
 	}

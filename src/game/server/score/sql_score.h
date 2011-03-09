@@ -49,6 +49,7 @@ class CSqlScore : public IScore
 	static void LoadScoreThread(void *pUser);
 	static void LoadTeamScoreThread(void *pData);	
 	static void SaveScoreThread(void *pUser);	
+	static void SaveTeamScoreThread(void *pData);
 	static void ShowRankThread(void *pUser);
 	static void ShowTop5Thread(void *pUser);
 	static void ShowTimesThread(void *pUser);
@@ -107,11 +108,11 @@ struct CSqlScoreData
 	char m_aName[MAX_NAME_LENGTH*2-1];
 	float m_Time;
 	float m_aCpCurrent[NUM_CHECKPOINTS];
-	int m_playerSQLID;
 	int m_Num;
 	bool m_Search;
 	char m_aRequestingPlayer[MAX_NAME_LENGTH];
 	int m_pTeam;
+
 	CCharacter **m_pTeamChars;
 	CGameTeams *m_pTeams;
 };

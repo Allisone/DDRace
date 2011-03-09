@@ -615,10 +615,9 @@ void CSqlScore::LoadScoreThread(void *pUser)
 				str_format(aBuf, sizeof(aBuf), "SELECT LAST_INSERT_ID() as ID;", pData->m_pSqlData->m_pDDRaceTablesPrefix, pData->m_aName);
 				pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);	
 				pData->m_pSqlData->m_pResults->next();
-
 			}
+			
 			// and get ID
-
 			playerData->m_playerSQLID = pData->m_pSqlData->m_pResults->getInt("ID"); // TODO: update on change name
 
 			str_format(aBuf, sizeof(aBuf), "Player %s has SQL ID %d",pData->m_aName,playerData->m_playerSQLID);
@@ -748,18 +747,42 @@ void CSqlScore::LoadTeamScore(int Team, CCharacter **pChars, CGameTeams *pTeams)
 	Tmp->m_pTeam = Team;
 	Tmp->m_pSqlData = this;
 	Tmp->m_pTeams = (CGameTeams *)pTeams;
-	char aBuf[200];
-				str_format(aBuf,sizeof(aBuf),"Player ID %d in Team %d",pChars[0]->GetPlayer()->GetCID(),Team);
-				dbg_msg("SQL",aBuf);
-	//			pName = pData->m_pSqlData->Server()->ClientName(pChars[1]->GetPlayer()->GetCID());
-				str_format(aBuf,sizeof(aBuf),"Player ID %d in Team %d",pChars[1]->GetPlayer()->GetCID(),Team);
-				dbg_msg("SQL",aBuf);	
 
 	void *LoadThread = thread_create(LoadTeamScoreThread, Tmp);
 #if defined(CONF_FAMILY_UNIX)
 	pthread_detach((pthread_t)LoadThread);
 #endif	
 }
+
+void CSqlScore::SaveTeamScoreThread(void *_pData){
+	lock_wait(gs_SqlLock);
+	
+	CSqlScoreData *pData = (CSqlScoreData *)_pData;
+	
+	// Connect to database
+	if(pData->m_pSqlData->Connect())
+	{
+		try
+		{
+	
+		}
+		catch (sql::SQLException &e)
+		{
+			char aBuf[256];
+			str_format(aBuf, sizeof(aBuf), "MySQL Error: %s", e.what());
+			dbg_msg("SQL", aBuf);
+			dbg_msg("SQL", "ERROR: Could not update time");
+		}
+		
+		// disconnect from database
+		pData->m_pSqlData->Disconnect(); // TODO: DDRace: Check if an exception is caught will this still execute ?
+	}
+	
+	delete pData;
+	
+	lock_release(gs_SqlLock);
+}
+
 void CSqlScore::SaveTeamScore(int Team, CCharacter *pChars[], float Time, CGameTeams *pTeams){
 
 }

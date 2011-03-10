@@ -15,7 +15,7 @@
 class CSQLPlayerData : public CPlayerData
 {
 public:
-	int m_playerSQLID;
+//
 };
 
 class CSqlScore : public IScore

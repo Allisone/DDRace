@@ -34,6 +34,7 @@ public:
 	float m_BestTime;
 	float m_CurrentTime;
 	float m_aBestCpTime[NUM_CHECKPOINTS];
+	int m_playerSQLID;	
 };
 
 class IScore

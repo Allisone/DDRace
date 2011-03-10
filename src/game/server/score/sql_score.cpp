@@ -631,7 +631,7 @@ void CSqlScore::LoadScoreThread(void *pUser)
 			}
 			
 			// and get ID
-			playerData->m_playerSQLID = pData->m_pSqlData->m_pResults->getInt("ID"); // TODO: update on change name
+			playerData->m_playerSQLID = pData->m_pSqlData->m_pResults->getInt("ID");
 
 			str_format(aBuf, sizeof(aBuf), "Player %s has SQL ID %d",pData->m_aName,playerData->m_playerSQLID);
 			dbg_msg("SQL",aBuf);			
@@ -679,6 +679,8 @@ void CSqlScore::LoadScoreThread(void *pUser)
 			// TODO: Am I allowed to do that ?
 			
 			// delete statement and results
+			str_format(aBuf, sizeof(aBuf), "Player %s has SQL ID %d",pData->m_aName,playerData->m_playerSQLID);
+			dbg_msg("SQL",aBuf);
 			delete pData->m_pSqlData->m_pStatement;
 			delete pData->m_pSqlData->m_pResults;
 		}
@@ -813,6 +815,9 @@ void CSqlScore::SaveScoreThread(void *pUser)
 		{
 			char aBuf[768];
 			CSQLPlayerData* playerData = (CSQLPlayerData *)pData->m_pSqlData->PlayerData(pData->m_ClientID);
+			
+			str_format(aBuf, sizeof(aBuf), "On SaveScoreThread: Player %s has SQL ID %d",pData->m_aName,playerData->m_playerSQLID);
+			dbg_msg("SQL",aBuf);			
 
 			// get the old best time from db
 			str_format(aBuf, sizeof(aBuf), 				   
@@ -1689,7 +1694,7 @@ void CSqlScore::agoTimeToString(int agoTime, char agoString[]){
 			break;
 		}
 	}
-	
+	str_format(agoString, sizeof(agoString), "");
 	if(count == 1){
 		str_format(aBuf, sizeof(aBuf), "%d %s", 1 , name);
 	}else{

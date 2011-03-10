@@ -28,6 +28,7 @@ CPlayer::CPlayer(CGameContext *pGameServer, int ClientID, int Team)
 	m_ChatScore = 0;
 	m_PauseInfo.m_Respawn = false;
 	
+	dbg_msg("CPlayer","calling Reset on PlayerData");
 	GameServer()->Score()->PlayerData(ClientID)->Reset();
 	
 	m_Invisible = false;

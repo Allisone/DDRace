@@ -461,19 +461,16 @@ void CSqlScore::InitVarsFromDB()
 	// 3. Map known and CRC old		= old mapID, old CRCID
 	
 	// Check 1.: Map is completly new
-	dbg_msg("SQL","Check 1.: Map is completly new");
 	str_format(aBuf, sizeof(aBuf), "SELECT ID, IgnoreRunsBeforeMapCRCID FROM %s_maps WHERE Name = '%s' LIMIT 0, 1;", m_pDDRaceTablesPrefix, m_aMap);
 	m_pResults = m_pStatement->executeQuery(aBuf);	
 	if(m_pResults->rowsCount() < 1)
 	{	// 1. is true: Map is completly new
 
 		// Create new Map entry		
-		dbg_msg("SQL","Create new Map entry");
 		str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_maps(ID,Name) VALUES (NULL,'%s');", m_pDDRaceTablesPrefix, m_aMap);
 		m_pStatement->execute(aBuf);
 
 		// and get that ID
-		dbg_msg("SQL","and get that ID");		
 		str_format(aBuf, sizeof(aBuf), "SELECT LAST_INSERT_ID() as ID;", m_pDDRaceTablesPrefix, m_aMap);
 		m_pResults = m_pStatement->executeQuery(aBuf);
 		while (m_pResults->next()) 
@@ -483,7 +480,6 @@ void CSqlScore::InitVarsFromDB()
 	}
 	else
 	{	// 2. or 3. is true: Map is known
-		dbg_msg("SQL"," 2. or 3. is true: Map is known");
 		m_pResults->next();
 		m_aMapSQLID = m_pResults->getInt("ID");
 		ignoreCRCsSmallerThan = m_pResults->getInt("IgnoreRunsBeforeMapCRCID"); // get old value
@@ -491,19 +487,16 @@ void CSqlScore::InitVarsFromDB()
 	// Now we have a map ID for sure, still don't know whats about the CRC
 
 	// Check 2. vs. 3.: Map known but new CRC vs. Map is not new
-	dbg_msg("SQL","Check 2. vs. 3.: Map known but new CRC vs. Map is not new");	
 	str_format(aBuf, sizeof(aBuf), "SELECT ID FROM %s_map_crcs WHERE MapID = '%d' AND CRC = '%s' LIMIT 0, 1;", m_pDDRaceTablesPrefix, m_aMapSQLID, pMapCrc);
 	m_pResults = m_pStatement->executeQuery(aBuf);
 	if(m_pResults->rowsCount() < 1)
 	{	// 2. is true: Map known but new CRC
 		
-		// Create new CRC entry	
-		dbg_msg("SQL","Create new CRC entry");			
+		// Create new CRC entry			
 		str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_map_crcs(ID,MapID,CRC,TimeOfIntroduction) VALUES (NULL,'%d','%s',CURRENT_TIMESTAMP());", m_pDDRaceTablesPrefix, m_aMapSQLID, pMapCrc);
 		m_pStatement->execute(aBuf);
 		
-		// and get that ID
-		dbg_msg("SQL","SELECT LAST_INSERT_ID() AS ID;");					
+		// and get that ID				
 		str_format(aBuf, sizeof(aBuf), "SELECT LAST_INSERT_ID() AS ID;", m_pDDRaceTablesPrefix, m_aMap);
 		m_pResults = m_pStatement->executeQuery(aBuf);
 		while (m_pResults->next()) 
@@ -511,8 +504,7 @@ void CSqlScore::InitVarsFromDB()
 			m_aMapCRCSQLID = m_pResults->getInt("ID");
 		}	
 		// TODO: Maybe give possibility to set this to newest CRC always
-		if(ignoreCRCsSmallerThan == 0){
-			dbg_msg("SQL","UPDATE %s_maps SET IgnoreRunsBeforeMapCRCID=LAST_INSERT_ID() WHERE ID = %d;");				
+		if(ignoreCRCsSmallerThan == 0){			
 			str_format(aBuf, sizeof(aBuf), "UPDATE %s_maps SET IgnoreRunsBeforeMapCRCID=LAST_INSERT_ID() WHERE ID = %d;", m_pDDRaceTablesPrefix, m_aMapSQLID, pMapCrc);
 			m_pStatement->execute(aBuf);
 			ignoreCRCsSmallerThan = m_aMapCRCSQLID;
@@ -537,22 +529,17 @@ void CSqlScore::InitVarsFromDB()
 	
 	char pCRCIDasString[10];
 	while (m_pResults->next()) 
-	{
-		dbg_msg("SQL","Concat CRC IDs");		
+	{	
 		str_format(pCRCIDasString,sizeof(pCRCIDasString),"%d", m_pResults->getInt("CRCID"));
 		strcat(m_usedMapCRCIDs, pCRCIDasString);
 		if(!m_pResults->isLast())
 			strcat(m_usedMapCRCIDs,", ");
-	}
-	dbg_msg("SQL","get the best time");		
+	}	
 	// get the best time
 	str_format(aBuf, sizeof(aBuf), "SELECT min(Time) as Time FROM `%s_runs` WHERE MapCRCID IN (%s)", m_pDDRaceTablesPrefix, m_usedMapCRCIDs);
-	dbg_msg("SQL",aBuf);
 	m_pResults = m_pStatement->executeQuery(aBuf);
-	dbg_msg("SQL","exectued");
 	if(m_pResults->next())
 	{
-		dbg_msg("SQL","get Time");
 		((CGameControllerDDRace*)GameServer()->m_pController)->m_CurrentRecord = (float)m_pResults->getDouble("Time");		
 		dbg_msg("SQL", "Getting best time on server done");			
 	}
@@ -569,7 +556,6 @@ void CSqlScore::Init()
 			// create tables or update db and get map data
 			char *ddrace_version_db = GetDBVersion();
 			UpdateDBVersion(ddrace_version_db);	free(ddrace_version_db);
-			dbg_msg("SQL","InitVarsFromDB");
 			InitVarsFromDB();			
 			
 			// delete results
@@ -608,7 +594,7 @@ void CSqlScore::LoadScoreThread(void *pUser)
 			
 			char aBuf[512];
 			
-			CSQLPlayerData* playerData = (CSQLPlayerData *)pData->m_pSqlData->PlayerData(pData->m_ClientID);
+			CPlayerData* playerData = (CPlayerData *)pData->m_pSqlData->PlayerData(pData->m_ClientID);
 			
 			// Check if the player has an entry in player table and get ID
 			str_format(aBuf, sizeof(aBuf), "SELECT ID FROM %s_players WHERE Name = ? LIMIT 0, 1;", pData->m_pSqlData->m_pDDRaceTablesPrefix);
@@ -814,7 +800,7 @@ void CSqlScore::SaveScoreThread(void *pUser)
 		try
 		{
 			char aBuf[768];
-			CSQLPlayerData* playerData = (CSQLPlayerData *)pData->m_pSqlData->PlayerData(pData->m_ClientID);
+			CPlayerData* playerData = (CPlayerData *)pData->m_pSqlData->PlayerData(pData->m_ClientID);
 			
 			str_format(aBuf, sizeof(aBuf), "On SaveScoreThread: Player %s has SQL ID %d",pData->m_aName,playerData->m_playerSQLID);
 			dbg_msg("SQL",aBuf);			
@@ -926,7 +912,9 @@ void CSqlScore::ShowRankThread(void *pUser)
 				str_format(matchedName,sizeof(matchedName),"%s",pResults->getString("PlayerName").c_str());				
 				int playerID = pResults->getInt("PlayerID");
 				
-				CSQLPlayerData* playerData = (CSQLPlayerData *)pData->m_pSqlData->PlayerData(pData->m_ClientID);
+				CPlayerData* playerData = pData->m_pSqlData->PlayerData(pData->m_ClientID);
+				str_format(aBuf,sizeof(aBuf),"%s has SQL-ID %d and wants to see rank",pResults->getString("PlayerName").c_str(),playerData->m_playerSQLID);	
+				dbg_msg("SQL",aBuf);
 				
 				if(g_Config.m_SvHideScore && playerID != playerData->m_playerSQLID){
 					pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, "You are not allowed to see other persons ranks on this server. Sorry.");
@@ -1053,7 +1041,6 @@ void CSqlScore::ShowTop5Thread(void *pUser)
 	{
 		try
 		{
-			// check sort methode
 			char aBuf[512];
 			str_format(aBuf, sizeof(aBuf), 
 					   "SELECT players.Name, Time, Ago, Stamp FROM "

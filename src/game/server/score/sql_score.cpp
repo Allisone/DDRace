@@ -453,7 +453,7 @@ void CSqlScore::InitVarsFromDB()
 	char aBuf[1024];
 	str_format(pMapCrc, sizeof(pMapCrc), "%08x", pServ->m_CurrentMapCrc);
 	int ignoreCRCsSmallerThan = 0;
-	str_format(m_usedMapCRCIDs, sizeof(m_usedMapCRCIDs), "");
+	m_usedMapCRCIDs[0] = '\0';
 	
 	// 3 possibilties: 
 	// 1. Map is completly new		= new mapID, new CRCID
@@ -527,14 +527,15 @@ void CSqlScore::InitVarsFromDB()
 		"WHERE crcs.ID >= maps.IgnoreRunsBeforeMapCRCID;", m_pDDRaceTablesPrefix, m_aMapSQLID, m_pDDRaceTablesPrefix);
 	m_pResults = m_pStatement->executeQuery(aBuf);
 	
-	char pCRCIDasString[10];
-	while (m_pResults->next()) 
-	{	
-		str_format(pCRCIDasString,sizeof(pCRCIDasString),"%d", m_pResults->getInt("CRCID"));
-		strcat(m_usedMapCRCIDs, pCRCIDasString);
-		if(!m_pResults->isLast())
-			strcat(m_usedMapCRCIDs,", ");
-	}	
+	char pCRCIDasString[12];
+	if(m_pResults->rowsCount()>0)
+		while (m_pResults->next()) 
+		{	
+			str_format(pCRCIDasString,sizeof(pCRCIDasString),"%d", m_pResults->getInt("CRCID"));
+			strcat(m_usedMapCRCIDs, pCRCIDasString);
+			if(!m_pResults->isLast())
+				strcat(m_usedMapCRCIDs,", ");
+		}	
 	// get the best time
 	str_format(aBuf, sizeof(aBuf), "SELECT min(Time) as Time FROM `%s_runs` WHERE MapCRCID IN (%s)", m_pDDRaceTablesPrefix, m_usedMapCRCIDs);
 	m_pResults = m_pStatement->executeQuery(aBuf);
@@ -555,7 +556,7 @@ void CSqlScore::Init()
 		{
 			// create tables or update db and get map data
 			char *ddrace_version_db = GetDBVersion();
-			UpdateDBVersion(ddrace_version_db);	free(ddrace_version_db);
+			UpdateDBVersion(ddrace_version_db); free(ddrace_version_db);
 			InitVarsFromDB();			
 			
 			// delete results
@@ -588,10 +589,7 @@ void CSqlScore::LoadScoreThread(void *pUser)
 	if(pData->m_pSqlData->Connect())
 	{
 		try
-		{
-			// check strings
-			pData->m_pSqlData->ClearString(pData->m_aName);
-			
+		{			
 			char aBuf[512];
 			
 			CPlayerData* playerData = (CPlayerData *)pData->m_pSqlData->PlayerData(pData->m_ClientID);
@@ -630,7 +628,7 @@ void CSqlScore::LoadScoreThread(void *pUser)
 					   "LIMIT 0,1) as run "
 					   "LEFT JOIN %s_record_checkpoints as recordCps "
 					   "ON run.ID = recordCps.RunID;", pData->m_pSqlData->m_pDDRaceTablesPrefix, playerData->m_playerSQLID,pData->m_pSqlData->m_usedMapCRCIDs, pData->m_pSqlData->m_pDDRaceTablesPrefix);
-
+			dbg_msg("SQL",aBuf);
 			pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);
 
 			dbg_msg("SQL", "Getting best time of player ");
@@ -802,8 +800,10 @@ void CSqlScore::SaveScoreThread(void *pUser)
 			char aBuf[768];
 			CPlayerData* playerData = (CPlayerData *)pData->m_pSqlData->PlayerData(pData->m_ClientID);
 			
-			str_format(aBuf, sizeof(aBuf), "On SaveScoreThread: Player %s has SQL ID %d",pData->m_aName,playerData->m_playerSQLID);
-			dbg_msg("SQL",aBuf);			
+			if (playerData->m_playerSQLID == 999999) {
+				pData->m_pSqlData->GameServer()->SendChatTarget(-1, "Your ID is bogus, maybe your name starts with special characters ? Can't save your records");
+				return;
+			}
 
 			// get the old best time from db
 			str_format(aBuf, sizeof(aBuf), 				   
@@ -903,18 +903,16 @@ void CSqlScore::ShowRankThread(void *pUser)
 	{
 		try
 		{
-			sql::ResultSet *pResults = pData->m_pSqlData->queryIDsAndNamesIntoResults(pData);
+			sql::ResultSet *results = pData->m_pSqlData->queryIDsAndNamesIntoResults(pData);
 		
-			if(pResults)
+			if(results)
 			{
 				char aBuf[800];
 				char matchedName[MAX_NAME_LENGTH];					
-				str_format(matchedName,sizeof(matchedName),"%s",pResults->getString("PlayerName").c_str());				
-				int playerID = pResults->getInt("PlayerID");
+				str_format(matchedName,sizeof(matchedName),"%s",results->getString("PlayerName").c_str());				
+				int playerID = results->getInt("PlayerID");
 				
 				CPlayerData* playerData = pData->m_pSqlData->PlayerData(pData->m_ClientID);
-				str_format(aBuf,sizeof(aBuf),"%s has SQL-ID %d and wants to see rank",pResults->getString("PlayerName").c_str(),playerData->m_playerSQLID);	
-				dbg_msg("SQL",aBuf);
 				
 				if(g_Config.m_SvHideScore && playerID != playerData->m_playerSQLID){
 					pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, "You are not allowed to see other persons ranks on this server. Sorry.");
@@ -996,7 +994,7 @@ void CSqlScore::ShowRankThread(void *pUser)
 				}
 			}
 			
-			delete pResults;
+			delete results;
 		}
 		catch (sql::SQLException &e)
 		{
@@ -1577,7 +1575,7 @@ sql::ResultSet *CSqlScore::queryIDsAndNamesIntoResults(void *pUser)
 	char aBuf[800];
 	char aBuf2[MAX_NAME_LENGTH+4];
 	
-	sql::ResultSet *pResults;
+	sql::ResultSet *results;
 	
 	str_format(aBuf, sizeof(aBuf),"I will search for a player with name like %s who finished this map",pData->m_aName);
 	dbg_msg("SQL",aBuf);
@@ -1597,28 +1595,28 @@ sql::ResultSet *CSqlScore::queryIDsAndNamesIntoResults(void *pUser)
 	sql::PreparedStatement *prepStatement = pData->m_pSqlData->m_pConnection->prepareStatement(aBuf);
 	str_format(aBuf2, sizeof(aBuf2),"%%%s%%",pData->m_aName);
 	prepStatement->setString(1,aBuf2);
-	pResults = prepStatement->executeQuery();
+	results = prepStatement->executeQuery();
 	delete prepStatement;
 	
-	pResults->next();
+	results->next();
 	
 	// Now check if we have 0, 1, or more hits
-	if(pResults->rowsCount() == 0){
+	if(results->rowsCount() == 0){
 		// 0 hits
 		str_format(aBuf, sizeof(aBuf),"Could not find records for a name like %s",pData->m_aName);
 		pData->m_pSqlData->GameServer()->SendChatTarget(-1, aBuf);	
-		delete pResults;
+		delete results;
 		return NULL;
 		
 	}			
-	else if(pResults->rowsCount() > 1)
+	else if(results->rowsCount() > 1)
 	{			
 		// 1++ hits
-		if (strcmp(pResults->getString("PlayerName").c_str(),pData->m_aName)==0)
+		if (strcmp(results->getString("PlayerName").c_str(),pData->m_aName)==0)
 		{			
 			// First row == search string
 			dbg_msg("SQL","Found Name");
-			return pResults;
+			return results;
 		}
 		else
 		{
@@ -1628,21 +1626,21 @@ sql::ResultSet *CSqlScore::queryIDsAndNamesIntoResults(void *pUser)
 			str_format(aBuf, sizeof(aBuf),"");
 			do
 			{
-				strcat(aBuf,pResults->getString("PlayerName").c_str());
+				strcat(aBuf,results->getString("PlayerName").c_str());
 				dbg_msg("SQL",aBuf);
-				if (!pResults->isLast())
+				if (!results->isLast())
 				{
 					strcat(aBuf,", ");
 					// TODO: Once I got Name, [nothing anymore]
 					// why ?
 				}
-			}while(pResults->next());
+			}while(results->next());
 			pData->m_pSqlData->GameServer()->SendChatTarget(-1, aBuf);
-			delete pResults;
+			delete results;
 			return NULL;
 		}	
 	}
-	return pResults;
+	return results;
 }
 
 void CSqlScore::agoTimeToString(int agoTime, char agoString[]){

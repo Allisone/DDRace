@@ -1306,6 +1306,7 @@ int CServer::Run()
 					Console()->ExecuteLine("sv_endless_drag 0", IConsole::CONSOLELEVEL_CONFIG, -1);
 					Console()->ExecuteLine("sv_old_laser 0", IConsole::CONSOLELEVEL_CONFIG, -1);
 					// new map loaded
+					dbg_msg("Server","New Map Got Loaded");
 					GameServer()->OnShutdown();
 					
 					for(int c = 0; c < MAX_CLIENTS; c++)
@@ -1398,6 +1399,7 @@ int CServer::Run()
 		}
 	}
 	// disconnect all clients on shutdown
+	dbg_msg("Server","Before disconnecting all clients on shutdown");
 	for(int i = 0; i < MAX_CLIENTS; ++i)
 	{
 		if(m_aClients[i].m_State != CClient::STATE_EMPTY)

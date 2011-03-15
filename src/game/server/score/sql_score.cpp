@@ -122,13 +122,13 @@ char* CSqlScore::GetDBVersion()
 	char aBuf[256];
 	char *ddrace_version_db = (char *) malloc(32*sizeof(char));
 	
-	// Check if version >= 1.053a (thus we have a table called %s_version)
+	// Check if version >= 1.061a (thus we have a table called %s_version)
 	str_format(aBuf, sizeof(aBuf), "SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = '%s_version';",m_pDDRaceTablesPrefix);
 	m_pResults = m_pStatement->executeQuery(aBuf);
 	
-	if(m_pResults->rowsCount() < 1) // Version < 1.053a
+	if(m_pResults->rowsCount() < 1) // Version < 1.061a
 		strcpy(ddrace_version_db,"0.5 trunk, 1.051a");
-		// If less than 1.053a we have each map a single table. (or none if first sql use)
+		// If less than 1.061a we have each map a single table. (or none if first sql use)
 		// Each table has the naming convention record_MAPNAME_race 
 		// Tables can be with or without timestamp
 	else 

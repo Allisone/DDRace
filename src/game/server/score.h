@@ -21,14 +21,12 @@ public:
 		m_CurrentTime = 0;
 		for(int i = 0; i < NUM_CHECKPOINTS; i++)
 			m_aBestCpTime[i] = 0;
-		dbg_msg("Score","Called Reset");
 		m_playerSQLID = 999999;
 	}
 	
 	void Set(float Time, float CpTime[NUM_CHECKPOINTS])
 	{
 		m_BestTime = Time;
-		dbg_msg("CPlayerData","Setting new Time");
 		for(int i = 0; i < NUM_CHECKPOINTS; i++)
 			m_aBestCpTime[i] = CpTime[i];
 	}

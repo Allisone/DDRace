@@ -118,7 +118,7 @@ void CGameTeams::OnCharacterFinish(int ClientID)
 		if(TeamFinished(m_Core.Team(ClientID)))
 		{
 			ChangeTeamState(m_Core.Team(ClientID), TEAMSTATE_OPEN);
-			CCharacter *pChars[Count(m_Core.Team(ClientID))];
+			CCharacter *pChars[MAX_CLIENTS];
 			for(int i = 0, j = 0; i < MAX_CLIENTS; ++i)
 			{
 				if(m_Core.Team(ClientID) == m_Core.Team(i))

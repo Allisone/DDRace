@@ -97,24 +97,11 @@ void CGameTeams::OnCharacterStart(int ClientID)
 						pChars[j]=pChar; 
 						char aBuf[100];
 						std::string pName = Server()->ClientName(pChars[j]->GetPlayer()->GetCID());						
-						str_format(aBuf,sizeof(aBuf),"%d Name = %s",j,pName.c_str());
-						dbg_msg("For SQL Team Score",aBuf);	
 						j++;
 					}
 				}
 			}
 			GameServer()->Score()->LoadTeamScore(m_Core.Team(ClientID), pChars, this);
-			// for(int i = 0; i < Count(Team); i++)
-			// {
-			// 	if(GameServer()->m_apPlayers[i] && pChars[i]->GetPlayer()->m_IsUsingDDRaceClient)
-			// 	{
-			// 		CNetMsg_Sv_Record RecordsMsg;
-			// 		RecordsMsg.m_PlayerTimeBest = m_BestTime[Team] * 100.0f;
-			// 		RecordsMsg.m_ServerTimeBest = GameServer()->m_pController->m_CurrentRecord * 100.0f;
-			// 		Server()->SendPackMsg(&RecordsMsg, MSGFLAG_VITAL, i);
-			// 	}
-			// }
-			// THIS IS NOW in SendTeamTimes	and should be called from within LoadTeamScoreThread			
 		}
 	}
 }

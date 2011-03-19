@@ -79,7 +79,7 @@ public:
 	virtual void LoadScore(int ClientID);
 	virtual void LoadTeamScore(int Team, CCharacter **pChars, CGameTeams *pTeams);	
 	virtual void SaveScore(int ClientID, float Time, CCharacter *pChar);
-	virtual void SaveTeamScore(int Team, CCharacter *pChars[], float Time, CGameTeams *pTeams);
+	virtual void SaveTeamScore(int Team, CCharacter **pChars, float Time, CGameTeams *pTeams);
 	virtual void ShowRank(int ClientID, const char* pName, bool Search=false);
 	virtual void ShowTop5(int ClientID, int Debut=1);
 	virtual void ShowTimes(int ClientID, const char* pName, int Debut=1);

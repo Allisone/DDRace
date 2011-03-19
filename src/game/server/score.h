@@ -46,9 +46,9 @@ public:
 	CPlayerData *PlayerData(int ID) { return &m_aPlayerData[ID]; }
 	
 	virtual void LoadScore(int ClientID) = 0;
-	virtual void LoadTeamScore(int Team, CCharacter *pChars[], CGameTeams *pTeams) = 0;
+	virtual void LoadTeamScore(int Team, CCharacter **pChars, CGameTeams *pTeams) = 0;
 	virtual void SaveScore(int ClientID, float Time, CCharacter *pChar) = 0;
-	virtual void SaveTeamScore(int Team, CCharacter *pChars[], float Time, CGameTeams *pTeams) = 0;
+	virtual void SaveTeamScore(int Team, CCharacter **pChars, float Time, CGameTeams *pTeams) = 0;
 	
 	virtual void ShowTop5(int ClientID, int Debut=1) = 0;
 	virtual void ShowRank(int ClientID, const char* pName, bool Search=false) = 0;

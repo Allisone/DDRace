@@ -126,7 +126,7 @@ char* CSqlScore::GetDBVersion()
 	str_format(aBuf, sizeof(aBuf), "SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = '%s_version';",m_pDDRaceTablesPrefix);
 	m_pResults = m_pStatement->executeQuery(aBuf);
 	
-	if(m_pResults->rowsCount() < 1) // Version < 1.061a
+	if(m_pResults->rowsCount() < 1) // Version < 1.063a
 		strcpy(ddrace_version_db,"0.5 trunk, 1.051a");
 		// If less than 1.061a we have each map a single table. (or none if first sql use)
 		// Each table has the naming convention record_MAPNAME_race 
@@ -147,7 +147,7 @@ char* CSqlScore::GetDBVersion()
 	return ddrace_version_db;
 }
 void CSqlScore::UpdateDBVersion(char *pFromVersion){
-	if(strcmp(pFromVersion,"0.5 trunk, 1.061a")<0)
+	if(strcmp(pFromVersion,"0.5 trunk, 1.063a")<0)
 	{	
 		char aBuf[1024];
 		
@@ -180,7 +180,7 @@ void CSqlScore::UpdateDBVersion(char *pFromVersion){
 				   "`ID` int(6) NOT NULL AUTO_INCREMENT,"
 				   "`MapID` varchar(255) NOT NULL,"
 				   "`CRC` varchar(8) DEFAULT NULL,"
-				   "`TimeOfIntroduction` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+				   "`TimeAdded` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,"
 				   "PRIMARY KEY (`ID`),KEY `MapID` (`MapID`),KEY `CRC` (`CRC`)"
 				   ") DEFAULT CHARSET=utf8 AUTO_INCREMENT=1;",m_pDDRaceTablesPrefix);
 		m_pStatement->execute(aBuf);		
@@ -190,6 +190,7 @@ void CSqlScore::UpdateDBVersion(char *pFromVersion){
 				   "CREATE TABLE `%s_players` ("
 				   "`ID` int(10) NOT NULL AUTO_INCREMENT,"
 				   "`Name` varchar(%d) NOT NULL,"
+				   "`TimeAdded` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,"				   
 				   "PRIMARY KEY (`ID`), UNIQUE KEY `Name` (`Name`)"
 				   ") DEFAULT CHARSET=utf8 AUTO_INCREMENT=1;",m_pDDRaceTablesPrefix,MAX_NAME_LENGTH);
 		m_pStatement->execute(aBuf);
@@ -323,8 +324,8 @@ void CSqlScore::UpdateDBVersion(char *pFromVersion){
 					// Put Mapname from %s_[Mapname]_race into table %s_map
 					std::string map_name = table_name.substr(record_prefix.length(),table_name.length()-record_prefix.length()-record_suffix.length());
 					str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_maps(ID,Name,IgnoreRunsBeforeMapCRCID) VALUES ('%d','%s','%d');",m_pDDRaceTablesPrefix,mapIDindex,map_name.c_str(),mapIDindex);
-					statement2->execute(aBuf);
-					str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_map_crcs(ID,MapID,TimeOfIntroduction) VALUES ('%d','%d',CURRENT_TIMESTAMP());",m_pDDRaceTablesPrefix,mapIDindex,mapIDindex);
+					statement2->execute(aBuf);				
+					str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_map_crcs(ID,MapID,TimeAdded) VALUES ('%d','%d',CURRENT_TIMESTAMP());",m_pDDRaceTablesPrefix,mapIDindex,mapIDindex);
 					statement2->execute(aBuf);					
 					
 					// Get all entries from %s_[Mapname]_race table, except those where Name is empty
@@ -347,7 +348,7 @@ void CSqlScore::UpdateDBVersion(char *pFromVersion){
 							cps[i] = (float)results2->getDouble(cpText);
 							str_format(aBuf, sizeof(aBuf), "cp%d = %.2f",i+1,cps[i]);
 						}
-						// Now write all gathered data into our one big temp-table
+						// Now write all gathered data into our one big temp-table					
 						str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_temp_all_runs (PlayerName, MapCRCID, TimeOfEvent, Time, cp1, cp2, cp3, cp4, cp5, cp6, cp7, cp8, cp9, cp10, cp11, cp12, cp13, cp14, cp15, cp16, cp17, cp18, cp19, cp20, cp21, cp22, cp23, cp24, cp25) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);",m_pDDRaceTablesPrefix);		
 						
 						prepStatement = m_pConnection->prepareStatement(aBuf); // anti sql injection
@@ -372,13 +373,14 @@ void CSqlScore::UpdateDBVersion(char *pFromVersion){
 		
 		// Next fill %s_players
 		// Group player names and put them into player table with above strategy
-		str_format(aBuf, sizeof(aBuf), "SELECT PlayerName FROM %s_temp_all_runs Group By PlayerName",m_pDDRaceTablesPrefix);
+		str_format(aBuf, sizeof(aBuf), "SELECT PlayerName, Min(TimeOfEvent) as TimeAdded FROM %s_temp_all_runs Group By PlayerName",m_pDDRaceTablesPrefix);
 		m_pResults = m_pStatement->executeQuery(aBuf);
 		
-		while (m_pResults->next()) {
-			str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_players(Name) VALUES (?);",m_pDDRaceTablesPrefix);
+		while (m_pResults->next()) {							
+			str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_players(Name,TimeAdded) VALUES (?,?);",m_pDDRaceTablesPrefix);
 			prepStatement = m_pConnection->prepareStatement(aBuf);
 			prepStatement->setString(1,m_pResults->getString("PlayerName"));
+			prepStatement->setDateTime(2,m_pResults->getString("TimeAdded"));			
 			prepStatement->execute();
 		}	
 		// Now we have associated all player's (/their names) with an unique ID
@@ -393,7 +395,7 @@ void CSqlScore::UpdateDBVersion(char *pFromVersion){
 		// Iterate threw all rows from our temp table with those PlayerID's, and 
 		// write it's ID, Map, PlayerID, Time and TimeOfEvent 
 		// into %s_runs
-		while (m_pResults->next()) {
+		while (m_pResults->next()) {		
 			str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_runs(ID, MapCRCID, PlayerID, Time, TimeOfEvent) VALUES ('%d','%d','%d','%.2f','%s');",m_pDDRaceTablesPrefix,m_pResults->getInt("RunID"),m_pResults->getInt("MapCRCID"),m_pResults->getInt("PlayerID"),(float)m_pResults->getDouble("Time"),m_pResults->getString("TimeOfEvent").c_str());
 			statement2->execute(aBuf);
 		}		
@@ -430,14 +432,13 @@ void CSqlScore::UpdateDBVersion(char *pFromVersion){
 				// TODO: break could make more sense maybe, yet I have a map where you can 
 				// skip a checkpoint cause of a circular map layout (each circle you get a
 				// new weapon and thus a new way for the circle) 
-				// but of course I could also rethink the map design, I keep continue for now
+				// but of course I could also rethink the map design, I keep continue for now		
 				str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_record_checkpoints (RunID, Number, Time) VALUES (%d,%d,%.2f);",m_pDDRaceTablesPrefix,m_pResults->getInt("RunID"),i+1,time);	
 				m_pStatement->execute(aBuf);
 			}		
-		}					
-		
-		str_format(aBuf, sizeof(aBuf), "DROP TABLE IF EXISTS `%s_temp_all_runs`",m_pDDRaceTablesPrefix);
-		m_pStatement->execute(aBuf);
+		}						
+		//str_format(aBuf, sizeof(aBuf), "DROP TABLE IF EXISTS `%s_temp_all_runs`",m_pDDRaceTablesPrefix);
+		//m_pStatement->execute(aBuf);
 		
 		delete prepStatement;		
 		delete results2;
@@ -448,6 +449,7 @@ void CSqlScore::UpdateDBVersion(char *pFromVersion){
 
 void CSqlScore::InitVarsFromDB()
 {
+	dbg_msg("SQL","Initializing server related sql vars");
 	CServer* pServ = (CServer *)m_pServer;
 	char pMapCrc[9];
 	char aBuf[1024];
@@ -493,7 +495,7 @@ void CSqlScore::InitVarsFromDB()
 	{	// 2. is true: Map known but new CRC
 		
 		// Create new CRC entry			
-		str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_map_crcs(ID,MapID,CRC,TimeOfIntroduction) VALUES (NULL,'%d','%s',CURRENT_TIMESTAMP());", m_pDDRaceTablesPrefix, m_aMapSQLID, pMapCrc);
+		str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_map_crcs(ID,MapID,CRC,TimeAdded) VALUES (NULL,'%d','%s',CURRENT_TIMESTAMP());", m_pDDRaceTablesPrefix, m_aMapSQLID, pMapCrc);
 		m_pStatement->execute(aBuf);
 		
 		// and get that ID				
@@ -1238,7 +1240,7 @@ void CSqlScore::ShowMapCRCsThread(void *pUser)
 				"WHERE MapID = %d) as crcs "
 				"LEFT JOIN %s_maps as maps "
 				"ON crcs.MapID = maps.ID "
-				"ORDER BY TimeOfIntroduction DESC", 
+				"ORDER BY TimeAdded DESC", 
 				pData->m_pSqlData->m_pDDRaceTablesPrefix, pData->m_pSqlData->m_aMapSQLID, pData->m_pSqlData->m_pDDRaceTablesPrefix);
 			pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);					
 				
@@ -1249,7 +1251,7 @@ void CSqlScore::ShowMapCRCsThread(void *pUser)
 				{
 					int Number = (int)pData->m_pSqlData->m_pResults->getInt("Number");
 					std::string CRC = (strcmp(pData->m_pSqlData->m_pResults->getString("CRC").c_str(),"") != 0) ? pData->m_pSqlData->m_pResults->getString("CRC").c_str() : "had no crc yet";
-					std::string Date = pData->m_pSqlData->m_pResults->getString("TimeOfIntroduction").c_str();
+					std::string Date = pData->m_pSqlData->m_pResults->getString("TimeAdded").c_str();
 					std::string Name = pData->m_pSqlData->m_pResults->getString("Name").c_str();
 					str_format(aBuf, sizeof(aBuf), "%d. %s %s, first used: %s",Number, Name.c_str(), CRC.c_str(), Date.c_str());
 					pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, aBuf);
@@ -1293,7 +1295,7 @@ void CSqlScore::IgnoreOldRunsThread(void *pUser)
 			char aBuf[512];	
 			
 			str_format(aBuf, sizeof(aBuf), 
-				"SELECT ID as MapCRCID FROM %s_map_crcs WHERE MapID = %d ORDER BY TimeOfIntroduction DESC LIMIT %d,1", 
+				"SELECT ID as MapCRCID FROM %s_map_crcs WHERE MapID = %d ORDER BY TimeAdded DESC LIMIT %d,1", 
 				pData->m_pSqlData->m_pDDRaceTablesPrefix, pData->m_pSqlData->m_aMapSQLID, pData->m_Num);
 			pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);					
 				
@@ -1401,7 +1403,7 @@ void CSqlScore::IgnoreOldRunsByDateThread(void *pUser)
 			char aBuf[512];	
 			
 			str_format(aBuf, sizeof(aBuf), 
-				"SELECT ID as MapCRCID FROM %s_map_crcs WHERE MapID = %d AND TimeOfIntroduction >= ? ORDER BY TimeOfIntroduction ASC LIMIT 0,1", 
+				"SELECT ID as MapCRCID FROM %s_map_crcs WHERE MapID = %d AND TimeAdded >= ? ORDER BY TimeAdded ASC LIMIT 0,1", 
 				pData->m_pSqlData->m_pDDRaceTablesPrefix,pData->m_pSqlData->m_aMapSQLID);
 				
 			sql::PreparedStatement *prepStatement = pData->m_pSqlData->m_pConnection->prepareStatement(aBuf);

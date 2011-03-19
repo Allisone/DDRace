@@ -9,9 +9,11 @@ class CGameTeams
 	int m_TeamState[MAX_CLIENTS];
 	int m_MembersCount[MAX_CLIENTS];
 	bool m_TeeFinished[MAX_CLIENTS];
-	
+
+	float m_BestTime[MAX_CLIENTS];
+	float m_CheckPoints[MAX_CLIENTS][25];
+
 	class CGameContext * m_pGameContext;
-	
 	
 public:
 	enum
@@ -35,8 +37,14 @@ public:
 	
 	void OnCharacterStart(int ClientID);
 	void OnCharacterFinish(int ClientID);
-	
+
+	void OnTeamFinish(int Team, CCharacter *pCharacters[]);
+
 	bool SetCharacterTeam(int ClientID, int Team);
+		
+	void SetBestTime(int Team, float Time) {m_BestTime[Team] = Time;};
+	
+	int GetBestTime(int Team) {return m_BestTime[Team];};	
 	
 	void ChangeTeamState(int Team, int State);
 	
@@ -50,8 +58,9 @@ public:
 	void SetForceCharacterTeam(int id, int Team);
 	
 	void Reset();
-	
+
 	void SendTeamsState(int Cid);
+	void SendTeamTimes(int Team, CCharacter **pChars);	
 
 	int m_LastChat[MAX_CLIENTS];
 };

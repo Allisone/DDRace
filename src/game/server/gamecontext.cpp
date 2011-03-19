@@ -1061,6 +1061,11 @@ void CGameContext::OnMessage(int MsgId, CUnpacker *pUnpacker, int ClientID)
 			char aChatText[256];
 			str_format(aChatText, sizeof(aChatText), "'%s' changed name to '%s'", aOldName, Server()->ClientName(ClientID));
 			SendChat(-1, CGameContext::CHAT_ALL, aChatText);
+			
+			// update the player 
+			// (we need a new m_playerSQLID, and new times for hud and logic if playername did change, cause playername is bound to a unique sql id)
+			Score()->PlayerData(ClientID)->Reset();
+			Score()->LoadScore(ClientID);
 		}
 		
 		// set skin

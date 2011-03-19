@@ -2,6 +2,7 @@
 #define GAME_SERVER_INTERFACE_SCORE_H
 
 #include "entities/character.h"
+//#include "game/server/teams.h"
 #include "gamecontext.h"
 
 #define NUM_CHECKPOINTS 25
@@ -25,6 +26,7 @@ public:
 	void Set(float Time, float CpTime[NUM_CHECKPOINTS])
 	{
 		m_BestTime = Time;
+		dbg_msg("CPlayerData","Setting new Time");
 		for(int i = 0; i < NUM_CHECKPOINTS; i++)
 			m_aBestCpTime[i] = CpTime[i];
 	}
@@ -44,7 +46,9 @@ public:
 	CPlayerData *PlayerData(int ID) { return &m_aPlayerData[ID]; }
 	
 	virtual void LoadScore(int ClientID) = 0;
+	virtual void LoadTeamScore(int Team, CCharacter *pChars[], CGameTeams *pTeams) = 0;
 	virtual void SaveScore(int ClientID, float Time, CCharacter *pChar) = 0;
+	virtual void SaveTeamScore(int Team, CCharacter *pChars[], float Time, CGameTeams *pTeams) = 0;
 	
 	virtual void ShowTop5(int ClientID, int Debut=1) = 0;
 	virtual void ShowRank(int ClientID, const char* pName, bool Search=false) = 0;

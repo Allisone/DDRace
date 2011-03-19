@@ -143,13 +143,15 @@ MACRO_CONFIG_STR(SvScoreFolder, sv_score_folder, 32, "records", CFGFLAG_SERVER, 
 
 
 #if defined(CONF_SQL)
-MACRO_CONFIG_INT(SvUseSQL, sv_use_sql, 0, 0, 1, CFGFLAG_SERVER, "Enables SQL DB instead of record file", IConsole::CONSOLELEVEL_ADMIN)
+MACRO_CONFIG_INT(SvUseSQL, sv_use_sql, 0, 0, 1, CFGFLAG_SERVER, "Enables SQL DB instead of record file", IConsole::CONSOLELEVEL_ADMIN) // Allisone: shoudn't this be Config level
 MACRO_CONFIG_STR(SvSqlUser, sv_sql_user, 32, "nameless", CFGFLAG_SERVER, "SQL User", IConsole::CONSOLELEVEL_CONFIG)
 MACRO_CONFIG_STR(SvSqlPw, sv_sql_pw, 32, "tee", CFGFLAG_SERVER, "SQL Password", IConsole::CONSOLELEVEL_CONFIG)
 MACRO_CONFIG_STR(SvSqlIp, sv_sql_ip, 32, "127.0.0.1", CFGFLAG_SERVER, "SQL Database IP", IConsole::CONSOLELEVEL_ADMIN)
 MACRO_CONFIG_INT(SvSqlPort, sv_sql_port, 3306, 0, 65535, CFGFLAG_SERVER, "SQL Database port", IConsole::CONSOLELEVEL_ADMIN)
 MACRO_CONFIG_STR(SvSqlDatabase, sv_sql_database, 16, "teeworlds", CFGFLAG_SERVER, "SQL Database name", IConsole::CONSOLELEVEL_ADMIN)
-MACRO_CONFIG_STR(SvSqlPrefix, sv_sql_prefix, 16, "record", CFGFLAG_SERVER, "SQL Database table prefix", IConsole::CONSOLELEVEL_ADMIN)
+MACRO_CONFIG_STR(SvSqlPrefix, sv_sql_prefix, 16, "record", CFGFLAG_SERVER, "SQL Database table prefix", IConsole::CONSOLELEVEL_CONFIG) // TODO: this should be removed at some point, keeping it for now for a smooth transition
+MACRO_CONFIG_STR(SvSqlDDRacePrefix, sv_sql_ddrace_prefix, 16, "ddrace", CFGFLAG_SERVER, "DDRace SQL Database table prefix", IConsole::CONSOLELEVEL_CONFIG)
+MACRO_CONFIG_STR(SvSqlCareAboutMapCRC, sv_sql_care_about_map_crc, 16, "ddrace", CFGFLAG_SERVER, "If set, map records on maps with old crc will be ignored", IConsole::CONSOLELEVEL_CONFIG)
 #endif
 
 MACRO_CONFIG_INT(SvDDRaceRules, sv_ddrace_rules, 1, 0, 1, CFGFLAG_SERVER, "Whether the default mod rules are displayed or not", IConsole::CONSOLELEVEL_ADMIN)

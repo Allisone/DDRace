@@ -12,16 +12,8 @@
 
 #include "../score.h"
 
-class CSQLPlayerData : public CPlayerData
-{
-public:
-//
-};
-
 class CSqlScore : public IScore
-{
-	CSQLPlayerData m_aPlayerData[MAX_CLIENTS];
-	
+{	
 	CGameContext *m_pGameServer;
 	IServer *m_pServer;
 
@@ -42,6 +34,7 @@ class CSqlScore : public IScore
 	int m_aMapSQLID;
 	int m_aMapCRCSQLID;	
 	char m_usedMapCRCIDs[256]; // space for 36 IDs with length 6
+	float m_pTeamsRecordServer;
 
 	CGameContext *GameServer() { return m_pGameServer; }
 	IServer *Server() { return m_pServer; }
@@ -78,9 +71,9 @@ public:
 	~CSqlScore();
 	
 	virtual void LoadScore(int ClientID);
-	virtual void LoadTeamScore(int Team, CCharacter **pChars, CGameTeams *pTeams);	
+	virtual void LoadTeamScore(int Team, CGameTeams *pTeams);	
 	virtual void SaveScore(int ClientID, float Time, CCharacter *pChar);
-	virtual void SaveTeamScore(int Team, CCharacter **pChars, float Time, CGameTeams *pTeams);
+	virtual void SaveTeamScore(int Team, float Time, CGameTeams *pTeams);
 	virtual void ShowRank(int ClientID, const char* pName, bool Search=false);
 	virtual void ShowTop5(int ClientID, int Debut=1);
 	virtual void ShowTimes(int ClientID, const char* pName, int Debut=1);
@@ -112,8 +105,8 @@ struct CSqlScoreData
 	bool m_Search;
 	char m_aRequestingPlayer[MAX_NAME_LENGTH];
 	int m_pTeam;
+	int m_pTeamSQLID;
 
-	CCharacter **m_pTeamChars;
 	CGameTeams *m_pTeams;
 };
 

@@ -8,11 +8,6 @@
 #include "score/sql_score.h"
 #endif
 
-#if defined(CONF_SQL)
-#include "score.h"
-#include "score/sql_score.h"
-#endif
-
 CGameTeams::CGameTeams(CGameContext *pGameContext) : m_pGameContext(pGameContext)
 {
 	Reset();
@@ -30,7 +25,8 @@ void CGameTeams::Reset()
 		m_BestTime[i] = 0.0;
 		
 		for(int j = 0; j < 25; j++){
-			m_CheckPoints[i][j] = 0.0;
+			m_CheckPointsRecord[i][j] = 0.0;
+			m_CheckPointsCurrent[i][j] = 0.0;			
 		}
 	}
 }
@@ -80,11 +76,8 @@ void CGameTeams::OnCharacterStart(int ClientID)
 
 		if(m_TeamState[m_Core.Team(ClientID)] <= TEAMSTATE_CLOSED && !Waiting)
 		{
-			CCharacter **pChars = (CCharacter **) malloc(Count(m_Core.Team(ClientID))*sizeof(CCharacter)); 
-			// TODO: Allisone: have recently learned that we shouldn't use malloc. Will rebuild that.
-
 			ChangeTeamState(m_Core.Team(ClientID), TEAMSTATE_STARTED);
-			for(int i = 0, j = 0; i < MAX_CLIENTS; ++i)
+			for(int i = 0; i < MAX_CLIENTS; ++i)
 			{
 				if(m_Core.Team(ClientID) == m_Core.Team(i))
 				{
@@ -94,14 +87,10 @@ void CGameTeams::OnCharacterStart(int ClientID)
 						pChar->m_DDRaceState = DDRACE_STARTED;
 						pChar->m_StartTime = Tick;
 						pChar->m_RefreshTime = Tick;
-						pChars[j]=pChar; 
-						char aBuf[100];
-						std::string pName = Server()->ClientName(pChars[j]->GetPlayer()->GetCID());						
-						j++;
 					}
 				}
 			}
-			GameServer()->Score()->LoadTeamScore(m_Core.Team(ClientID), pChars, this);
+			OnTeamStarted(m_Core.Team(ClientID));
 		}
 	}
 }
@@ -118,38 +107,49 @@ void CGameTeams::OnCharacterFinish(int ClientID)
 		if(TeamFinished(m_Core.Team(ClientID)))
 		{
 			ChangeTeamState(m_Core.Team(ClientID), TEAMSTATE_OPEN);
-			CCharacter *pChars[MAX_CLIENTS];
-			for(int i = 0, j = 0; i < MAX_CLIENTS; ++i)
+			for(int i = 0; i < MAX_CLIENTS; ++i)
 			{
 				if(m_Core.Team(ClientID) == m_Core.Team(i))
 				{
 					CCharacter * pChar = Character(i);
 					if(pChar != 0)
 					{
-						pChars[j]=pChar;
-						j++;						
-
 						m_TeeFinished[i] = false;
 					}
 				}
 			}
 #if defined(CONF_SQL)
 			if (g_Config.m_SvUseSQL) {
-				OnTeamFinish(m_Core.Team(ClientID), pChars);				
+				OnTeamFinish(m_Core.Team(ClientID));				
 			}
 #endif
 		}
 	}
 }
 
-void CGameTeams::OnTeamFinish(int Team, CCharacter *pChars[])
+void CGameTeams::OnTeamStarted(int Team)
+{
+	m_StartTime[Team] = Server()->Tick();
+	GameServer()->Score()->LoadTeamScore(Team, this);
+}
+
+void CGameTeams::OnTeamFinish(int Team)
 {
 	char aBuf[500];
 	float time = 0.0;
-	CCharacter *pOneChar;
-	pOneChar = pChars[0];		
+	CCharacter *pOneChar = NULL;
+	for(int i = 0; i < MAX_CLIENTS; ++i)
+	{
+		if(Team == m_Core.Team(i))
+		{
+			pOneChar = Character(i);
+			break;
+		}
+	}
+	if (!pOneChar)
+		return;
 
-	time =  (float)(Server()->Tick() - pOneChar->m_StartTime) / ((float)Server()->TickSpeed());
+	time =  (float)(Server()->Tick() - m_StartTime[Team]) / ((float)Server()->TickSpeed());
 
 	if(time < 0.000001f) return;
 //	CPlayerData *pData = GameServer()->Score()->PlayerData(m_pPlayer->GetCID());
@@ -157,8 +157,15 @@ void CGameTeams::OnTeamFinish(int Team, CCharacter *pChars[])
 	char names[255];
 	str_format(names, sizeof(names),"");	
 
-	for (int i = 0; i<Count(Team); i++) {
-		CCharacter *pChar = pChars[i];
+	CCharacter *pChar;
+	for(int i = 0; i < MAX_CLIENTS; ++i)
+	{
+		if(Team != m_Core.Team(i))
+		{
+			continue;
+		}
+		pChar = Character(i);
+	
 		int playerID = pChar->GetPlayer()->GetCID();
 		const char* playerName = Server()->ClientName(playerID);
 		
@@ -233,7 +240,7 @@ void CGameTeams::OnTeamFinish(int Team, CCharacter *pChars[])
 		// update player score	
 		m_BestTime[Team] = time;
 		for (int i=0; i<25; i++) {
-			m_CheckPoints[Team][i] = pOneChar->m_CpCurrent[i];
+			m_CheckPointsRecord[Team][i] = m_CheckPointsCurrent[Team][i];
 		}
 		pCallSaveScore = true;
 		
@@ -256,7 +263,7 @@ void CGameTeams::OnTeamFinish(int Team, CCharacter *pChars[])
 	
 	// send the run data to the score engine 
 	if(pCallSaveScore)
-		GameServer()->Score()->SaveTeamScore(Team, pChars, time, this);		
+		GameServer()->Score()->SaveTeamScore(Team, time, this);		
 
 	
 	// update server best time
@@ -397,17 +404,23 @@ void CGameTeams::SendTeamsState(int ClientID)
 	Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, ClientID);	
 }
 
-void CGameTeams::SendTeamTimes(int Team, CCharacter **_pChars)
+void CGameTeams::SendTeamTimes(int Team)
 {
-	CCharacter **pChars = (CCharacter **)(_pChars);
-	for(int i = 0; i < Count(Team); i++)
+	CCharacter *pOneChar;
+	for(int i = 0; i < MAX_CLIENTS; ++i)
 	{
-		if(pChars[i]->GetPlayer()->m_IsUsingDDRaceClient)
+		if(Team != m_Core.Team(i))
+		{
+			continue;
+		}
+		pOneChar = Character(i);
+		if(pOneChar->GetPlayer()->m_IsUsingDDRaceClient)
 		{
 			CNetMsg_Sv_Record RecordsMsg;
 			RecordsMsg.m_PlayerTimeBest = m_BestTime[Team] * 100.0f;
-			RecordsMsg.m_ServerTimeBest = GameServer()->m_pController->m_CurrentRecord * 100.0f;
-			Server()->SendPackMsg(&RecordsMsg, MSGFLAG_VITAL, pChars[i]->GetPlayer()->GetCID());
+			RecordsMsg.m_ServerTimeBest = m_ServerBestTime * 100.0f;
+			// TODO: show Teams a Team ServerBest Record
+			Server()->SendPackMsg(&RecordsMsg, MSGFLAG_VITAL, pOneChar->GetPlayer()->GetCID());
 		}
 	}
 }

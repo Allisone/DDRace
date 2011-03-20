@@ -205,13 +205,25 @@ void CSqlScore::UpdateDBVersion(char *pFromVersion){
 				   "`TimeOfEvent` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,"
 				   "PRIMARY KEY (`ID`),KEY `MapCRCID` (`MapCRCID`),"
 				   "KEY `PlayerID` (`PlayerID`)) AUTO_INCREMENT=1;", m_pDDRaceTablesPrefix);
-		m_pStatement->execute(aBuf);
+		m_pStatement->execute(aBuf);		
+		
+		// create table: record_checkpoints
+		str_format(aBuf, sizeof(aBuf),				
+				   "CREATE TABLE `%s_record_checkpoints` ("
+				   "`RunID` int(10) NOT NULL,"
+				   "`Number` int(2) NOT NULL,"
+				   "`Time` float DEFAULT '0',"
+				   "UNIQUE KEY `RunID_2` (`RunID`,`Number`),"
+				   "KEY `RunID` (`RunID`)"
+				   ") DEFAULT CHARSET=utf8;",m_pDDRaceTablesPrefix);
+		m_pStatement->execute(aBuf);		
 		
 		// create table: teams
 		str_format(aBuf, sizeof(aBuf),				
 				   "CREATE TABLE `%s_teams` ("
 				   "`ID` int(6) NOT NULL AUTO_INCREMENT,"
 				   "`Name` varchar(255) DEFAULT NULL,"
+				   "`TimeAdded` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,"				   
 				   "PRIMARY KEY (`ID`), UNIQUE KEY `Name` (`Name`)"
 				   ") DEFAULT CHARSET=utf8 AUTO_INCREMENT=1;",m_pDDRaceTablesPrefix);
 		m_pStatement->execute(aBuf);	
@@ -220,8 +232,9 @@ void CSqlScore::UpdateDBVersion(char *pFromVersion){
 		str_format(aBuf, sizeof(aBuf),				
 				   "CREATE TABLE `%s_team_members` ("
 				   "`TeamID` int(6) NOT NULL,"				   
-				   "`PlayerID` int(10) NOT NULL,"
-				   "UNIQUE KEY `TeamMembersID` (`TeamID`,`PlayerID`)"
+				   "`PlayerID` int(10) NOT NULL,"				   
+				   "UNIQUE KEY `TeamMembersID` (`TeamID`,`PlayerID`),"
+				   "KEY `PlayerID` (`PlayerID`)"
 				   ") DEFAULT CHARSET=utf8;",m_pDDRaceTablesPrefix,MAX_NAME_LENGTH);
 		m_pStatement->execute(aBuf);
 		
@@ -235,6 +248,17 @@ void CSqlScore::UpdateDBVersion(char *pFromVersion){
 				   "`TimeOfEvent` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,"
 				   "PRIMARY KEY (`ID`),KEY `MapCRCID` (`MapCRCID`),"
 				   "KEY `TeamID` (`TeamID`)) AUTO_INCREMENT=1;", m_pDDRaceTablesPrefix);
+		m_pStatement->execute(aBuf);			
+		
+		// create table: record_team_checkpoints
+		str_format(aBuf, sizeof(aBuf),				
+				   "CREATE TABLE `%s_team_record_checkpoints` ("
+				   "`RunID` int(10) NOT NULL,"
+				   "`Number` int(2) NOT NULL,"
+				   "`Time` float DEFAULT '0',"
+				   "UNIQUE KEY `RunID_2` (`RunID`,`Number`),"
+				   "KEY `RunID` (`RunID`)"
+				   ") DEFAULT CHARSET=utf8;",m_pDDRaceTablesPrefix);
 		m_pStatement->execute(aBuf);		
 		
 		// create table: version
@@ -243,17 +267,6 @@ void CSqlScore::UpdateDBVersion(char *pFromVersion){
 				   "`version` varchar(32) NOT NULL,"
 				   "UNIQUE KEY `version` (`version`)"
 				   ")", m_pDDRaceTablesPrefix);
-		m_pStatement->execute(aBuf);
-		
-		// create table: record_checkpoints
-		str_format(aBuf, sizeof(aBuf),				
-				   "CREATE TABLE `%s_record_checkpoints` ("
-				   "`RunID` int(10) NOT NULL,"
-				   "`Number` int(2) NOT NULL,"
-				   "`Time` float DEFAULT '0',"
-				   "UNIQUE KEY `RunID_2` (`RunID`,`Number`),"
-				   "KEY `RunID` (`RunID`)"
-				   ") DEFAULT CHARSET=utf8;",m_pDDRaceTablesPrefix);
 		m_pStatement->execute(aBuf);
 		
 		str_format(aBuf, sizeof(aBuf), "INSERT INTO `%s_version` (`version`) VALUES ('%s');",m_pDDRaceTablesPrefix,GAME_VERSION);
@@ -543,9 +556,18 @@ void CSqlScore::InitVarsFromDB()
 	m_pResults = m_pStatement->executeQuery(aBuf);
 	if(m_pResults->next())
 	{
-		((CGameControllerDDRace*)GameServer()->m_pController)->m_CurrentRecord = (float)m_pResults->getDouble("Time");		
-		dbg_msg("SQL", "Getting best time on server done");			
+		((CGameControllerDDRace*)GameServer()->m_pController)->m_CurrentRecord = (float)m_pResults->getDouble("Time");				
 	}
+	
+	// get the best team time
+	str_format(aBuf, sizeof(aBuf), "SELECT min(Time) as Time FROM `%s_team_runs` WHERE MapCRCID IN (%s)", m_pDDRaceTablesPrefix, m_usedMapCRCIDs);
+	m_pResults = m_pStatement->executeQuery(aBuf);
+	if(m_pResults->next())
+	{
+		m_pTeamsRecordServer = (float)m_pResults->getDouble("Time");		
+	
+	}	
+	dbg_msg("SQL", "Getting best time on server done");		
 }
 
 // create tables... should be done only once
@@ -709,22 +731,131 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 	// Connect to database
 	if(pData->m_pSqlData->Connect())
 	{
-		CCharacter **pChars = (CCharacter **)(pData->m_pTeamChars);
 		try
 		{			
-			char aBuf[512];
+			char aBuf[512]; 
+			char aNumberStringChain[512]; 			
+			char aStringNumber[11];
 			int pTeam = pData->m_pTeam;
 			int pTeamsCount = pData->m_pTeams->Count(pTeam);
-			std::string pName = pData->m_pSqlData->Server()->ClientName(pChars[0]->GetPlayer()->GetCID());
-			str_format(aBuf,sizeof(aBuf),"Player %s ID %d is one of %d players in Team %d",pName.c_str(),pChars[0]->GetPlayer()->GetCID(),pTeamsCount,pTeam);
-			dbg_msg("SQL",aBuf);
-			pData->m_pTeams->SetBestTime(pTeam, 20.0);
-			pData->m_pTeams->SendTeamTimes(pTeam,pChars);
-			delete(pChars);
+			CGameTeams *pTeams = pData->m_pTeams;
+			int pPlayerSQLIDs[MAX_CLIENTS];
+						
+			
+			for(int i = 0, j = 0; i < MAX_CLIENTS; ++i)
+			{
+				if(pTeam == pTeams->m_Core.Team(i))
+				{
+					CPlayerData *pPlayerData = pData->m_pSqlData->PlayerData(i);
+					pPlayerSQLIDs[j] = pPlayerData->m_playerSQLID;					
+					str_format(aStringNumber,sizeof(aStringNumber),"%d",pPlayerData->m_playerSQLID);
+					strcat(aNumberStringChain,aStringNumber);
+					if (++j < pTeamsCount) {
+						strcat(aNumberStringChain,", ");						
+					}
+				}
+			}
+			
+			
+			// TODO: replace with this query
+			//					SELECT ddrace_team_members.TeamID, COUNT(*) AS Members, SUM(ddrace_team_members.PlayerID IN(1, 5)) AS PlayersFromYourSetThatAreInThisTeam
+			//					FROM ddrace_team_members
+			//					JOIN
+			//					(
+			//					 SELECT DISTINCT ddrace_team_members.TeamID
+			//					 FROM ddrace_team_members
+			//					 WHERE ddrace_team_members.PlayerID IN(1, 5)
+			//					 ) AS relevant_teams ON relevant_teams.TeamID = ddrace_team_members.TeamID
+			//					GROUP BY ddrace_team_members.TeamID
+			//					HAVING members = PlayersFromYourSetThatAreInThisTeam AND members = 2
+			
+			
+			//			std::string pName = pData->m_pSqlData->Server()->ClientName();
+			//			str_format(aBuf,sizeof(aBuf),"Player %s ID %d is one of %d players in Team %d",pName.c_str(),pChars[0]->GetPlayer()->GetCID(),pTeamsCount,pTeam);
+			//			dbg_msg("SQL",aBuf);
+			str_format(aBuf,sizeof(aBuf), 	
+						"SELECT TeamID, COUNT(*) AS MemberCount, SUM(PlayerID IN(%s)) AS SumCount "
+						"FROM %s_team_members "
+						"GROUP BY TeamID "
+						"HAVING MemberCount = SumCount AND MemberCount = %d "
+					   , aNumberStringChain, pData->m_pSqlData->m_pDDRaceTablesPrefix, pTeamsCount
+					   );
+			dbg_msg("SQL TEST",aBuf);
+			
+			pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);
+			
+			if (pData->m_pSqlData->m_pResults->rowsCount() == 1 && pData->m_pSqlData->m_pResults->next()) 
+			{
+				pTeams->m_TeamSQLID[pTeam] = (int)pData->m_pSqlData->m_pResults->getInt("TeamID");
+				//pTeams->m_BestTime[pTeam] = (float)pData->m_pSqlData->m_pResults->getDouble("RunTime");
+				
+				
+			}
+			else
+			{
+				// Create new Team ID
+				str_format(aBuf,sizeof(aBuf),"INSERT INTO %s_teams (ID) Values (NULL);",pData->m_pSqlData->m_pDDRaceTablesPrefix);
+				pData->m_pSqlData->m_pStatement->execute(aBuf);
+				
+				// Get new Team ID
+				str_format(aBuf,sizeof(aBuf),"SELECT LAST_INSERT_ID() as ID;");
+				pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);
+				if (pData->m_pSqlData->m_pResults->rowsCount() == 1 && pData->m_pSqlData->m_pResults->next()) 
+				{
+					pTeams->m_TeamSQLID[pTeam] = (int)pData->m_pSqlData->m_pResults->getInt("ID");
+				}
+				else
+				{
+					//sth. is wrong (Allisone: how to throw exception ?)
+					pData->m_pSqlData->Disconnect();
+					return;
+				}
+				
+				// Add Players to Team
+				for(int i = 0; i < pTeamsCount; i++)
+				{
+					str_format(aBuf,sizeof(aBuf),"INSERT INTO %s_team_members (TeamID,PlayerID) Values (%d,%d);", pData->m_pSqlData->m_pDDRaceTablesPrefix, pTeams->m_TeamSQLID[pTeam], pPlayerSQLIDs[i]);
+					pData->m_pSqlData->m_pStatement->execute(aBuf);					
+
+				}
+
+			}	
+				
+			// get best time and related checkpoints
+			str_format(aBuf, sizeof(aBuf), 				   
+					   "SELECT * FROM "
+					   "(SELECT ID, Time as RunTime FROM %s_team_runs WHERE TeamID = %d AND MapCRCID IN (%s) "
+					   "ORDER BY TIME ASC "
+					   "LIMIT 0,1) as run "
+					   "LEFT JOIN %s_team_record_checkpoints as recordCps "
+					   "ON run.ID = recordCps.RunID;", pData->m_pSqlData->m_pDDRaceTablesPrefix, pTeams->m_TeamSQLID[pTeam],pData->m_pSqlData->m_usedMapCRCIDs, pData->m_pSqlData->m_pDDRaceTablesPrefix);
+
+			pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);
+			
+			dbg_msg("SQL", "Getting best time of team ");
+			
+			if (pData->m_pSqlData->m_pResults->next()) 
+			{
+				pTeams->SetBestTime(pTeam, (float)pData->m_pSqlData->m_pResults->getDouble("RunTime"));
+				pTeams->SendTeamTimes(pTeam);
+													
+				do 
+				{
+					// get the checkpoint times				
+					if(g_Config.m_SvCheckpointSave)
+					{
+						int i = pData->m_pSqlData->m_pResults->getInt("Number");
+						float time = pData->m_pSqlData->m_pResults->getDouble("Time");					
+						pTeams->m_CheckPointsRecord[pTeam][i] = time;
+						pTeams->m_CheckPointsCurrent[pTeam][i] = 0.0;						
+					}
+				} while (pData->m_pSqlData->m_pResults->next());
+			}
+			pTeams->SetServerBestTime(pData->m_pSqlData->m_pTeamsRecordServer);
+			dbg_msg("SQL", "Getting best time of player done");
 		}
 		catch (sql::SQLException &e)
 		{
-			delete(pChars);
 			char aBuf[256];
 			str_format(aBuf, sizeof(aBuf), "MySQL Error: %s", e.what());
 			dbg_msg("SQL", aBuf);
@@ -740,11 +871,10 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 	lock_release(gs_SqlLock);	
 }
 
-void CSqlScore::LoadTeamScore(int Team, CCharacter **pChars, CGameTeams *pTeams)
+void CSqlScore::LoadTeamScore(int Team, CGameTeams *pTeams)
 {	
 	CSqlScoreData *Tmp = new CSqlScoreData();
-	Tmp->m_pTeams = pTeams;
-	Tmp->m_pTeamChars = (CCharacter **)pChars;	
+	Tmp->m_pTeams = pTeams;	
 	Tmp->m_pTeam = Team;
 	Tmp->m_pSqlData = this;
 	Tmp->m_pTeams = (CGameTeams *)pTeams;
@@ -784,8 +914,24 @@ void CSqlScore::SaveTeamScoreThread(void *_pData){
 	lock_release(gs_SqlLock);
 }
 
-void CSqlScore::SaveTeamScore(int Team, CCharacter *pChars[], float Time, CGameTeams *pTeams){
-
+void CSqlScore::SaveTeamScore(int Team, float Time, CGameTeams *pTeams){
+	CConsole* pCon = (CConsole*)GameServer()->Console();
+	if(pCon->m_Cheated)
+		return;
+	
+	CSqlScoreData *Tmp = new CSqlScoreData();
+	Tmp->m_pTeams = pTeams;	
+	Tmp->m_pTeam = Team;
+	Tmp->m_pTeamSQLID = pTeams->GetTeamSQLID(Team);
+	Tmp->m_Time = Time;
+	for(int i = 0; i < NUM_CHECKPOINTS; i++)
+		Tmp->m_aCpCurrent[i] = pTeams->m_CheckPointsCurrent[Team][i];
+	Tmp->m_pSqlData = this;
+	
+	void *SaveThread = thread_create(SaveTeamScoreThread, Tmp);
+#if defined(CONF_FAMILY_UNIX)
+	pthread_detach((pthread_t)SaveThread);
+#endif
 }
 
 void CSqlScore::SaveScoreThread(void *pUser)

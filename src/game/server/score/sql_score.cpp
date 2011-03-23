@@ -815,10 +815,8 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 				for(int i = 0; i < pTeamsCount; i++)
 				{
 					str_format(aBuf,sizeof(aBuf),"INSERT INTO %s_team_members (TeamID,PlayerID) Values (%d,%d);", pData->m_pSqlData->m_pDDRaceTablesPrefix, pData->m_pSqlData->TeamData(pTeam)->m_teamSQLID, pPlayerSQLIDs[i]);
-					pData->m_pSqlData->m_pStatement->execute(aBuf);					
-
+					pData->m_pSqlData->m_pStatement->execute(aBuf);		
 				}
-
 			}	
 				
 			// get best time and related checkpoints
@@ -845,10 +843,9 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 				dbg_msg("SQL",aBuf);
 				
 				pData->m_pSqlData->TeamData(pTeam)->m_BestTime = (float)pData->m_pSqlData->m_pResults->getDouble("RunTime");
-				pData->m_pSqlData->TeamData(pTeam)->m_CurrentTime = (float)pData->m_pSqlData->m_pResults->getDouble("RunTime");					
+				pData->m_pSqlData->TeamData(pTeam)->m_CurrentTime = (float)pData->m_pSqlData->m_pResults->getDouble("RunTime");	
+				pTeams->SendRecordToTeam(pTeam);	
 				
-				pData->m_pSqlData->GameServer()->SendRecord(pData->m_ClientID);		
-													
 				do 
 				{
 					// get the checkpoint times				
@@ -860,7 +857,13 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 					}
 				} while (pData->m_pSqlData->m_pResults->next());
 			}
-			pTeams->SetServerBestTime(pData->m_pSqlData->m_pTeamsRecordServer);
+			else
+			{
+				pData->m_pSqlData->TeamData(pTeam)->m_BestTime = (float)0;
+				pData->m_pSqlData->TeamData(pTeam)->m_CurrentTime = (float)0;
+				pTeams->SendRecordToTeam(pTeam);
+			}
+			//pTeams->SetServerBestTime(pData->m_pSqlData->m_pTeamsRecordServer);
 			dbg_msg("SQL", "Getting best time of team done");
 		}
 		catch (sql::SQLException &e)
@@ -904,7 +907,63 @@ void CSqlScore::SaveTeamScoreThread(void *_pData){
 	{
 		try
 		{
-	
+			char aBuf[768];
+			CTeamData* teamData = (CTeamData *)pData->m_pSqlData->TeamData(pData->m_pTeam);
+			
+			if (teamData->m_teamSQLID == 9999999999) {
+				pData->m_pSqlData->GameServer()->SendChatTarget(-1, "Your ID is bogus, maybe your name starts with special characters ? Can't save your records");
+				return;
+			}
+			
+			// get the old best time from db
+			str_format(aBuf, sizeof(aBuf), 				   
+					   "SELECT ID, Time FROM %s_team_runs WHERE TeamID = '%d' AND MapCRCID IN (%s) "
+					   "ORDER BY TIME ASC "
+					   "LIMIT 0,1;", pData->m_pSqlData->m_pDDRaceTablesPrefix, teamData->m_teamSQLID,pData->m_pSqlData->m_usedMapCRCIDs, pData->m_pSqlData->m_pDDRaceTablesPrefix);
+			
+			pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);
+			
+			float oldBest = 0.0;
+			int oldID = 0;
+			if (pData->m_pSqlData->m_pResults->next()) {
+				oldBest = (float)pData->m_pSqlData->m_pResults->getDouble("Time");
+				oldID = pData->m_pSqlData->m_pResults->getInt("ID");
+			}	
+			
+			// insert entry in runs
+			str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_team_runs(ID, MapCRCID, TeamID, Time, TimeOfEvent) VALUES (NULL,'%d','%d','%.2f', CURRENT_TIMESTAMP())",pData->m_pSqlData->m_pDDRaceTablesPrefix,pData->m_pSqlData->m_aMapCRCSQLID,teamData->m_teamSQLID,pData->m_Time);
+			pData->m_pSqlData->m_pStatement->execute(aBuf);
+			
+			dbg_msg("SQL", "Adding new run time done");
+			
+			// if our new time is besser, save checkpoints
+			if (oldBest == 0.0 || oldBest >= (float)pData->m_Time) {
+				for (int i=0; i<25; i++) {
+					float time = teamData->m_aBestCpTime[i];
+					if(time == 0) 
+						continue; 
+					// TODO: break could make more sense maybe, yet I have a map where you can 
+					// skip a checkpoint cause of a circular map layout (each circle you get a
+					// new weapon and thus a new way for the circle) 
+					// but of course I could also rethink the map design, I keep continue for now
+					if (oldBest != 0.0) {
+						// Update old record entries
+						str_format(aBuf, sizeof(aBuf), "UPDATE %s_team_record_checkpoints SET RunID=LAST_INSERT_ID(), Number='%d',Time='%.2f' WHERE RunID=%d AND Number=%d;",pData->m_pSqlData->m_pDDRaceTablesPrefix,i+1,time,oldID,i+1);
+						if(pData->m_pSqlData->m_pStatement->executeUpdate(aBuf) > 0){
+							continue; 
+							// if we changed a row continue, 
+							// but if not, execute insert query below
+							// this happens if a map was updated and a new checkpoint was added, 
+							// thus we can't update a previous checkpoint as it didn't exist yet in the previous run
+						}
+					}
+					str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_team_record_checkpoints (RunID, Number, Time) VALUES (LAST_INSERT_ID(),'%d','%.2f');",pData->m_pSqlData->m_pDDRaceTablesPrefix,i+1,time);	
+					pData->m_pSqlData->m_pStatement->execute(aBuf);				
+				}
+				dbg_msg("SQL", "Update of checkpoints done");				
+			}
+			// delete results statement
+			delete pData->m_pSqlData->m_pStatement;
 		}
 		catch (sql::SQLException &e)
 		{
@@ -915,7 +974,7 @@ void CSqlScore::SaveTeamScoreThread(void *_pData){
 		}
 		
 		// disconnect from database
-		pData->m_pSqlData->Disconnect(); // TODO: DDRace: Check if an exception is caught will this still execute ?
+		pData->m_pSqlData->Disconnect(); //TODO:Check if an exception is caught will this still execute ?
 	}
 	
 	delete pData;
@@ -956,7 +1015,7 @@ void CSqlScore::SaveScoreThread(void *pUser)
 			char aBuf[768];
 			CPlayerData* playerData = (CPlayerData *)pData->m_pSqlData->PlayerData(pData->m_ClientID);
 			
-			if (playerData->m_playerSQLID == 999999) {
+			if (playerData->m_playerSQLID == 9999999999) {
 				pData->m_pSqlData->GameServer()->SendChatTarget(-1, "Your ID is bogus, maybe your name starts with special characters ? Can't save your records");
 				return;
 			}

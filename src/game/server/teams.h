@@ -51,6 +51,8 @@ public:
 
 	void ChangeTeamState(int Team, int State);
 	
+	void SendRecordToTeam(int Team);
+	
 	bool TeamFinished(int Team);
 	
 	int TeamMask(int Team, int ExceptID = -1);

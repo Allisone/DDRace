@@ -33,6 +33,7 @@ void CGameTeams::OnCharacterStart(int ClientID)
 {
 	int Tick = Server()->Tick();
 	CCharacter* pStartingChar = Character(ClientID);
+	GameServer()->SendRecord(ClientID);
 	if(!pStartingChar)
 		return;
 	if(pStartingChar->m_DDRaceState == DDRACE_FINISHED)
@@ -137,17 +138,6 @@ void CGameTeams::OnTeamFinish(int Team)
 {
 	char aBuf[500];
 	float time = 0.0;
-	CCharacter *pOneChar = NULL;
-	for(int i = 0; i < MAX_CLIENTS; ++i)
-	{
-		if(Team == m_Core.Team(i))
-		{
-			pOneChar = Character(i);
-			break;
-		}
-	}
-	if (!pOneChar)
-		return;
 
 	time =  (float)(Server()->Tick() - m_StartTime[Team]) / ((float)Server()->TickSpeed());
 
@@ -242,21 +232,7 @@ void CGameTeams::OnTeamFinish(int Team)
 		pData->Set(time, m_CpCurrent[Team]);
 		pCallSaveScore = true;
 		
-		NeedToSendNewRecord = true;
-//		for(int i = 0; i < MAX_CLIENTS; i++)
-//		{
-//			if(GameServer()->m_apPlayers[i] && GameServer()->m_apPlayers[i]->m_IsUsingDDRaceClient)
-//			{
-//				if(!g_Config.m_SvHideScore || i == pOneChar->GetPlayer()->GetCID())
-//				{
-//					CNetMsg_Sv_PlayerTime Msg;
-//					Msg.m_Time = time * 100.0;
-//					Msg.m_ClientID = pOneChar->GetPlayer()->GetCID();
-//					Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, i);
-//				}
-//			}
-//		}
-		
+		NeedToSendNewRecord = true;		
 	}
 	
 	// send the run data to the score engine 
@@ -265,9 +241,9 @@ void CGameTeams::OnTeamFinish(int Team)
 
 	
 	// update server best time
-	if(GameServer()->m_pController->m_CurrentRecord == 0 || time < GameServer()->m_pController->m_CurrentRecord)
+	if(GameServer()->m_pController->m_CurrentTeamRecord == 0 || time < GameServer()->m_pController->m_CurrentTeamRecord)
 	{
-		GameServer()->m_pController->m_CurrentRecord = time;
+		GameServer()->m_pController->m_CurrentTeamRecord = time;
 		NeedToSendNewRecord = true;
 	}
 	
@@ -279,7 +255,7 @@ void CGameTeams::OnTeamFinish(int Team)
 			if(GameServer()->m_apPlayers[i] && GameServer()->m_apPlayers[i]->m_IsUsingDDRaceClient)
 			{
 				CNetMsg_Sv_Record RecordsMsg;
-				RecordsMsg.m_PlayerTimeBest = time * 100.0f;
+				RecordsMsg.m_PlayerTimeBest = 0;
 				RecordsMsg.m_ServerTimeBest = GameServer()->m_pController->m_CurrentRecord * 100.0f;
 				RecordsMsg.m_ServerTeamTimeBest = GameServer()->m_pController->m_CurrentTeamRecord * 100.0f;				
 				RecordsMsg.m_TeamTimeBest = GameServer()->m_pController->m_CurrentTeamRecord * 100.0f;
@@ -448,4 +424,11 @@ void CGameTeams::SendTeamTimes(int Team)
 //			Server()->SendPackMsg(&RecordsMsg, MSGFLAG_VITAL, pOneChar->GetPlayer()->GetCID());
 //		}
 //	}
+}
+
+
+void CGameTeams::SendRecordToTeam(int Team){
+	for(int i = 0; i < MAX_CLIENTS; ++i)
+		if(m_Core.Team(i) == Team)
+			GameServer()->SendRecord(i);
 }

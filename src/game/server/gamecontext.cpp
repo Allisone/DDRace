@@ -1648,9 +1648,11 @@ void CGameContext::SendRecord(int ClientID)
 	CTeamsCore * Teams = &((CGameControllerDDRace*)m_pController)->m_Teams.m_Core;
 	CNetMsg_Sv_Record RecordsMsg;
 	RecordsMsg.m_PlayerTimeBest = Score()->PlayerData(ClientID)->m_BestTime * 100.0f;//
+	RecordsMsg.m_TeamTimeBest = Score()->TeamData(Teams->Team(ClientID))->m_BestTime * 100.0f;//TODO: finish this
+	
 	RecordsMsg.m_ServerTimeBest = m_pController->m_CurrentRecord * 100.0f;//TODO: finish this
 	RecordsMsg.m_ServerTeamTimeBest = m_pController->m_CurrentTeamRecord * 100.0f;//
-	RecordsMsg.m_TeamTimeBest = Score()->TeamData(Teams->Team(ClientID))->m_BestTime * 100.0f;//TODO: finish this
+
 	
 	Server()->SendPackMsg(&RecordsMsg, MSGFLAG_VITAL, ClientID);
 }

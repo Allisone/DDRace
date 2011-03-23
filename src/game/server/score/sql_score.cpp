@@ -556,7 +556,7 @@ void CSqlScore::InitVarsFromDB()
 	m_pResults = m_pStatement->executeQuery(aBuf);
 	if(m_pResults->next())
 	{
-		((CGameControllerDDRace*)GameServer()->m_pController)->m_CurrentRecord = (float)m_pResults->getDouble("Time");				
+		((CGameControllerDDRace*)GameServer()->m_pController)->m_CurrentRecord = (float)m_pResults->getDouble("Time");
 	}
 	
 	// get the best team time
@@ -564,8 +564,7 @@ void CSqlScore::InitVarsFromDB()
 	m_pResults = m_pStatement->executeQuery(aBuf);
 	if(m_pResults->next())
 	{
-		m_pTeamsRecordServer = (float)m_pResults->getDouble("Time");		
-	
+		((CGameControllerDDRace*)GameServer()->m_pController)->m_CurrentTeamRecord = (float)m_pResults->getDouble("Time");	
 	}	
 	dbg_msg("SQL", "Getting best time on server done");		
 }
@@ -680,8 +679,9 @@ void CSqlScore::LoadScoreThread(void *pUser)
 			}
 			dbg_msg("SQL", "Getting best time of player done");
 			
-			// TODO: Am I allowed to do that ?
-			pData->m_pSqlData->GameServer()->m_apPlayers[pData->m_ClientID]->m_Score = (pData->m_pSqlData->PlayerData(pData->m_ClientID)->m_BestTime)?pData->m_pSqlData->PlayerData(pData->m_ClientID)->m_BestTime:-9999;
+			// TODO: Am I allowed to do that ?					
+//			pData->m_pSqlData->PlayerData(pData->m_ClientID)->m_BestTime = (pData->m_pSqlData->PlayerData(pData->m_ClientID)->m_BestTime)?pData->m_pSqlData->PlayerData(pData->m_ClientID)->m_BestTime:0;
+//				pData->m_pSqlData->PlayerData(pData->m_ClientID)->m_CurrentTime = (pData->m_pSqlData->PlayerData(pData->m_ClientID)->m_CurrentTime)?pData->m_pSqlData->PlayerData(pData->m_ClientID)->m_CurrentTime:0;
 			
 			pData->m_pSqlData->GameServer()->SendRecord(pData->m_ClientID);			
 			// TODO: Am I allowed to do that ?
@@ -786,7 +786,7 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 			
 			if (pData->m_pSqlData->m_pResults->rowsCount() == 1 && pData->m_pSqlData->m_pResults->next()) 
 			{
-				pTeams->m_TeamSQLID[pTeam] = (int)pData->m_pSqlData->m_pResults->getInt("TeamID");
+				pData->m_pSqlData->TeamData(pTeam)->m_teamSQLID = (int)pData->m_pSqlData->m_pResults->getInt("TeamID");
 				//pTeams->m_BestTime[pTeam] = (float)pData->m_pSqlData->m_pResults->getDouble("RunTime");
 				
 				
@@ -802,7 +802,7 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 				pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);
 				if (pData->m_pSqlData->m_pResults->rowsCount() == 1 && pData->m_pSqlData->m_pResults->next()) 
 				{
-					pTeams->m_TeamSQLID[pTeam] = (int)pData->m_pSqlData->m_pResults->getInt("ID");
+					pData->m_pSqlData->TeamData(pTeam)->m_teamSQLID = (int)pData->m_pSqlData->m_pResults->getInt("ID");
 				}
 				else
 				{
@@ -814,7 +814,7 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 				// Add Players to Team
 				for(int i = 0; i < pTeamsCount; i++)
 				{
-					str_format(aBuf,sizeof(aBuf),"INSERT INTO %s_team_members (TeamID,PlayerID) Values (%d,%d);", pData->m_pSqlData->m_pDDRaceTablesPrefix, pTeams->m_TeamSQLID[pTeam], pPlayerSQLIDs[i]);
+					str_format(aBuf,sizeof(aBuf),"INSERT INTO %s_team_members (TeamID,PlayerID) Values (%d,%d);", pData->m_pSqlData->m_pDDRaceTablesPrefix, pData->m_pSqlData->TeamData(pTeam)->m_teamSQLID, pPlayerSQLIDs[i]);
 					pData->m_pSqlData->m_pStatement->execute(aBuf);					
 
 				}
@@ -828,7 +828,7 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 					   "ORDER BY TIME ASC "
 					   "LIMIT 0,1) as run "
 					   "LEFT JOIN %s_team_record_checkpoints as recordCps "
-					   "ON run.ID = recordCps.RunID;", pData->m_pSqlData->m_pDDRaceTablesPrefix, pTeams->m_TeamSQLID[pTeam],pData->m_pSqlData->m_usedMapCRCIDs, pData->m_pSqlData->m_pDDRaceTablesPrefix);
+					   "ON run.ID = recordCps.RunID;", pData->m_pSqlData->m_pDDRaceTablesPrefix, pData->m_pSqlData->TeamData(pTeam)->m_teamSQLID,pData->m_pSqlData->m_usedMapCRCIDs, pData->m_pSqlData->m_pDDRaceTablesPrefix);
 
 			pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);
 			
@@ -836,8 +836,18 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 			
 			if (pData->m_pSqlData->m_pResults->next()) 
 			{
-				pTeams->SetBestTime(pTeam, (float)pData->m_pSqlData->m_pResults->getDouble("RunTime"));
-				pTeams->SendTeamTimes(pTeam);
+				//pTeams->SetBestTime(pTeam, (float)pData->m_pSqlData->m_pResults->getDouble("RunTime"));
+								
+//				pData->m_pSqlData->TeamData(pTeam)->m_BestTime = (pData->m_pSqlData->TeamData(pTeam)->m_BestTime)?pData->m_pSqlData->TeamData(pTeam)->m_BestTime:-9999;
+//				pData->m_pSqlData->TeamData(pTeam)->m_CurrentTime = (pData->m_pSqlData->TeamData(pTeam)->m_CurrentTime)?pData->m_pSqlData->TeamData(pTeam)->m_CurrentTime:-9999;
+				dbg_msg("SQL","Setting Times");
+				str_format(aBuf,sizeof(aBuf),"Time %d, %d",pData->m_pSqlData->TeamData(pTeam)->m_BestTime,pData->m_pSqlData->TeamData(pTeam)->m_CurrentTime);
+				dbg_msg("SQL",aBuf);
+				
+				pData->m_pSqlData->TeamData(pTeam)->m_BestTime = (float)pData->m_pSqlData->m_pResults->getDouble("RunTime");
+				pData->m_pSqlData->TeamData(pTeam)->m_CurrentTime = (float)pData->m_pSqlData->m_pResults->getDouble("RunTime");					
+				
+				pData->m_pSqlData->GameServer()->SendRecord(pData->m_ClientID);		
 													
 				do 
 				{
@@ -846,13 +856,12 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 					{
 						int i = pData->m_pSqlData->m_pResults->getInt("Number");
 						float time = pData->m_pSqlData->m_pResults->getDouble("Time");					
-						pTeams->m_CheckPointsRecord[pTeam][i] = time;
-						pTeams->m_CheckPointsCurrent[pTeam][i] = 0.0;						
+						pData->m_pSqlData->TeamData(pTeam)->m_aBestCpTime[i] = time;						
 					}
 				} while (pData->m_pSqlData->m_pResults->next());
 			}
 			pTeams->SetServerBestTime(pData->m_pSqlData->m_pTeamsRecordServer);
-			dbg_msg("SQL", "Getting best time of player done");
+			dbg_msg("SQL", "Getting best time of team done");
 		}
 		catch (sql::SQLException &e)
 		{
@@ -922,10 +931,9 @@ void CSqlScore::SaveTeamScore(int Team, float Time, CGameTeams *pTeams){
 	CSqlScoreData *Tmp = new CSqlScoreData();
 	Tmp->m_pTeams = pTeams;	
 	Tmp->m_pTeam = Team;
-	Tmp->m_pTeamSQLID = pTeams->GetTeamSQLID(Team);
 	Tmp->m_Time = Time;
 	for(int i = 0; i < NUM_CHECKPOINTS; i++)
-		Tmp->m_aCpCurrent[i] = pTeams->m_CheckPointsCurrent[Team][i];
+		Tmp->m_aCpCurrent[i] = pTeams->m_CpCurrent[Team][i];
 	Tmp->m_pSqlData = this;
 	
 	void *SaveThread = thread_create(SaveTeamScoreThread, Tmp);

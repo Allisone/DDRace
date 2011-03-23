@@ -43,6 +43,7 @@ IGameController::IGameController(class CGameContext *pGameServer)
 	m_aNumSpawnPoints[2] = 0;
 	
 	m_CurrentRecord = 0;
+	m_CurrentTeamRecord = 0;
 
 }
 

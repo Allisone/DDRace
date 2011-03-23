@@ -105,7 +105,6 @@ struct CSqlScoreData
 	bool m_Search;
 	char m_aRequestingPlayer[MAX_NAME_LENGTH];
 	int m_pTeam;
-	int m_pTeamSQLID;
 
 	CGameTeams *m_pTeams;
 };

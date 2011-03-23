@@ -764,7 +764,8 @@ void CCharacter::Die(int Killer, int Weapon)
 	// we got to wait 0.5 secs before respawning
 	m_pPlayer->m_RespawnTick = Server()->Tick()+Server()->TickSpeed()/2;
 
-	((CGameControllerDDRace*)GameServer()->m_pController)->m_Teams.SetForceCharacterTeam(m_pPlayer->GetCID(), 0);
+	((CGameControllerDDRace*)GameServer()->m_pController)->m_Teams.CharacterDied(m_pPlayer->GetCID());	
+//	((CGameControllerDDRace*)GameServer()->m_pController)->m_Teams.SetForceCharacterTeam(m_pPlayer->GetCID(), 0);
 }
 
 bool CCharacter::TakeDamage(vec2 Force, int Dmg, int From, int Weapon)
@@ -982,7 +983,7 @@ void CCharacter::OnFinish()
 		}
 		else
 		{
-			str_format(aBuf, sizeof(aBuf), "%5.2f second(s) worse, better luck next time.", fabs(pData->m_BestTime - time));
+			str_format(aBuf, sizeof(aBuf), "%5.2f second(s) worse, better luck next time, old time %f.", fabs(pData->m_BestTime - time),pData->m_BestTime);
 			GameServer()->SendChatTarget(m_pPlayer->GetCID(), aBuf);//this is private, sent only to the tee
 		}
 	}
@@ -1156,7 +1157,10 @@ void CCharacter::HandleSkippableTiles(int Index)
 			GameLayerClipped(m_Pos)) &&
 			!m_Super)
 		{
-			Die(m_pPlayer->GetCID(), WEAPON_WORLD);
+			if (Team() == TEAM_FLOCK || Teams()->TeamFinished(Team())) 
+				Die(m_pPlayer->GetCID(), WEAPON_WORLD);	
+			else
+				Freeze();
 			return;
 		}
 
@@ -1374,7 +1378,10 @@ void CCharacter::HandleTiles(int Index)
 		
 	}
 	if(((m_TileIndex == TILE_END) || (m_TileFIndex == TILE_END) || FTile1 == TILE_END || FTile2 == TILE_END || FTile3 == TILE_END || FTile4 == TILE_END || Tile1 == TILE_END || Tile2 == TILE_END || Tile3 == TILE_END || Tile4 == TILE_END) && m_DDRaceState == DDRACE_STARTED)
+	{
+		dbg_msg("Character","will call char finish");
 		Controller->m_Teams.OnCharacterFinish(m_pPlayer->GetCID());
+	}
 	if(((m_TileIndex == TILE_FREEZE) || (m_TileFIndex == TILE_FREEZE)) && !m_Super && !m_DeepFreeze)
 		Freeze();
 	else if(((m_TileIndex == TILE_UNFREEZE) || (m_TileFIndex == TILE_UNFREEZE)) && !m_DeepFreeze)

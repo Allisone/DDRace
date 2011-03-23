@@ -34,6 +34,8 @@ void CHud::OnReset()
 	m_FinishTime = false;
 	m_ServerRecord = -1.0f;
 	m_PlayerRecord = -1.0f;
+	m_ServerTeamRecord = -1.0f;
+	m_TeamRecord = -1.0f;	
 	m_DDRaceTimeReceived = false;
 }
 
@@ -472,6 +474,8 @@ void CHud::OnMessage(int MsgType, void *pRawMsg)
 		CNetMsg_Sv_Record *pMsg = (CNetMsg_Sv_Record *)pRawMsg;
 		m_ServerRecord = (float)pMsg->m_ServerTimeBest/100;
 		m_PlayerRecord = (float)pMsg->m_PlayerTimeBest/100;
+		m_ServerTeamRecord = (float)pMsg->m_ServerTeamTimeBest/100;
+		m_TeamRecord = (float)pMsg->m_TeamTimeBest/100;		
 	}
 }
 
@@ -543,7 +547,7 @@ void CHud::RenderRecord()
 		str_format(aBuf, sizeof(aBuf), "Server best:");
 		TextRender()->Text(0, 5, 40, 6, aBuf, -1);
 		str_format(aBuf, sizeof(aBuf), "%02d:%05.2f", (int)m_ServerRecord/60, m_ServerRecord-((int)m_ServerRecord/60*60));
-		TextRender()->Text(0, 53, 40, 6, aBuf, -1);
+		TextRender()->Text(0, 65, 40, 6, aBuf, -1);
 	}
 	
 	if(m_PlayerRecord > 0 )
@@ -552,7 +556,25 @@ void CHud::RenderRecord()
 		str_format(aBuf, sizeof(aBuf), "Personal best:");
 		TextRender()->Text(0, 5, 47, 6, aBuf, -1);
 		str_format(aBuf, sizeof(aBuf), "%02d:%05.2f", (int)m_PlayerRecord/60, m_PlayerRecord-((int)m_PlayerRecord/60*60));
-		TextRender()->Text(0, 53, 47, 6, aBuf, -1);
+		TextRender()->Text(0, 65, 47, 6, aBuf, -1);
 	}
+	
+	if(m_ServerTeamRecord > 0 )
+	{
+		char aBuf[64];
+		str_format(aBuf, sizeof(aBuf), "Server Team best:");
+		TextRender()->Text(0, 5, 61, 6, aBuf, -1);
+		str_format(aBuf, sizeof(aBuf), "%02d:%05.2f", (int)m_ServerTeamRecord/60, m_ServerTeamRecord-((int)m_ServerTeamRecord/60*60));
+		TextRender()->Text(0, 65, 61, 6, aBuf, -1);
+	}
+	
+	if(m_TeamRecord > 0 )
+	{				
+		char aBuf[64];
+		str_format(aBuf, sizeof(aBuf), "Team best:");
+		TextRender()->Text(0, 5, 68, 6, aBuf, -1);
+		str_format(aBuf, sizeof(aBuf), "%02d:%05.2f", (int)m_TeamRecord/60, m_TeamRecord-((int)m_TeamRecord/60*60));
+		TextRender()->Text(0, 65, 68, 6, aBuf, -1);
+	}	
 }
 

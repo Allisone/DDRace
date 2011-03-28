@@ -47,6 +47,8 @@ class CSqlScore : public IScore
 	static void ShowTop5Thread(void *pUser);
 	static void ShowTimesThread(void *pUser);
 	static void ShowMapCRCsThread(void *pUser);	
+	static void ShowTeamNameThread(void *pData);
+	static void SetTeamNameThread(void *pData);	
 	static void IgnoreOldRunsThread(void *pUser);
 	static void IgnoreOldRunsByCRCThread(void *pUser);
 	static void IgnoreOldRunsByDateThread(void *pUser);		
@@ -79,6 +81,8 @@ public:
 	virtual void ShowTimes(int ClientID, const char* pName, int Debut=1);
 	virtual void ShowTimes(int ClientID, int Debut=1);
 	virtual void ShowMapCRCs(int ClientID);
+	virtual void ShowTeamName(int CallerClientID, int TeamNo);
+	virtual void SetTeamName(int CallerClientID, int TeamNo, const char* pName);
 	virtual void IgnoreOldRuns(int ClientID, int Before=0);
 	virtual void IgnoreOldRunsByCRC(int ClientID, const char* aCRC);
 	virtual void IgnoreOldRunsByDate(int ClientID, const char* aDate);		

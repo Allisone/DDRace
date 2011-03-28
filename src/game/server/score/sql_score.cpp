@@ -530,8 +530,7 @@ void CSqlScore::InitVarsFromDB()
 		
 		m_pResults->next();
 		m_aMapCRCSQLID = m_pResults->getInt("ID");
-	}	
-	dbg_msg("SQL","Get CRC ID");					
+	}					
 	
 	// Get CRC ID
 	str_format(aBuf, sizeof(aBuf), 
@@ -641,7 +640,7 @@ void CSqlScore::LoadScoreThread(void *pUser)
 			playerData->m_playerSQLID = pData->m_pSqlData->m_pResults->getInt("ID");
 
 			str_format(aBuf, sizeof(aBuf), "Player %s has SQL ID %d",pData->m_aName,playerData->m_playerSQLID);
-			dbg_msg("SQL",aBuf);			
+			dbg_msg("SQL",aBuf); // TODO: remove if enough testet... id being wrong was a resistant bug
 			
 			// get best time and related checkpoints
 			str_format(aBuf, sizeof(aBuf), 				   
@@ -651,7 +650,7 @@ void CSqlScore::LoadScoreThread(void *pUser)
 					   "LIMIT 0,1) as run "
 					   "LEFT JOIN %s_record_checkpoints as recordCps "
 					   "ON run.ID = recordCps.RunID;", pData->m_pSqlData->m_pDDRaceTablesPrefix, playerData->m_playerSQLID,pData->m_pSqlData->m_usedMapCRCIDs, pData->m_pSqlData->m_pDDRaceTablesPrefix);
-			dbg_msg("SQL",aBuf);
+
 			pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);
 
 			dbg_msg("SQL", "Getting best time of player ");
@@ -665,7 +664,8 @@ void CSqlScore::LoadScoreThread(void *pUser)
 				dbg_msg("SQL",aBuf);
 				str_format(aBuf, sizeof(aBuf), "It's %.2f",pData->m_pSqlData->PlayerData(pData->m_ClientID)->m_BestTime);	
 				dbg_msg("SQL",aBuf);
-								
+				
+				// TODO: those two times differed sometimes (different rounding), check: still the case ?							
 				do 
 				{
 					// get the checkpoint times				
@@ -679,16 +679,10 @@ void CSqlScore::LoadScoreThread(void *pUser)
 			}
 			dbg_msg("SQL", "Getting best time of player done");
 			
-			// TODO: Am I allowed to do that ?					
-//			pData->m_pSqlData->PlayerData(pData->m_ClientID)->m_BestTime = (pData->m_pSqlData->PlayerData(pData->m_ClientID)->m_BestTime)?pData->m_pSqlData->PlayerData(pData->m_ClientID)->m_BestTime:0;
-//				pData->m_pSqlData->PlayerData(pData->m_ClientID)->m_CurrentTime = (pData->m_pSqlData->PlayerData(pData->m_ClientID)->m_CurrentTime)?pData->m_pSqlData->PlayerData(pData->m_ClientID)->m_CurrentTime:0;
-			
+			// force score reload if this was called as result of a name change f.e.
 			pData->m_pSqlData->GameServer()->SendRecord(pData->m_ClientID);			
-			// TODO: Am I allowed to do that ?
 			
 			// delete statement and results
-			str_format(aBuf, sizeof(aBuf), "Player %s has SQL ID %d",pData->m_aName,playerData->m_playerSQLID);
-			dbg_msg("SQL",aBuf);
 			delete pData->m_pSqlData->m_pStatement;
 			delete pData->m_pSqlData->m_pResults;
 		}
@@ -725,7 +719,7 @@ void CSqlScore::LoadScore(int ClientID)
 void CSqlScore::LoadTeamScoreThread(void *_pData)
 {
 	lock_wait(gs_SqlLock);
-	dbg_msg("SQL","Load Team Score Thread");
+	
 	CSqlScoreData *pData = (CSqlScoreData *)_pData;
 	
 	// Connect to database
@@ -780,13 +774,12 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 						"HAVING MemberCount = SumCount AND MemberCount = %d "
 					   , aNumberStringChain, pData->m_pSqlData->m_pDDRaceTablesPrefix, pTeamsCount
 					   );
-			dbg_msg("SQL TEST",aBuf);
 			
 			pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);
 			
 			if (pData->m_pSqlData->m_pResults->rowsCount() == 1 && pData->m_pSqlData->m_pResults->next()) 
 			{
-				pData->m_pSqlData->TeamData(pTeam)->m_teamSQLID = (int)pData->m_pSqlData->m_pResults->getInt("TeamID");
+				pData->m_pSqlData->TeamData(pTeam)->m_teamSQLID = (long)pData->m_pSqlData->m_pResults->getInt("TeamID");
 				//pTeams->m_BestTime[pTeam] = (float)pData->m_pSqlData->m_pResults->getDouble("RunTime");
 				
 				
@@ -802,13 +795,13 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 				pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);
 				if (pData->m_pSqlData->m_pResults->rowsCount() == 1 && pData->m_pSqlData->m_pResults->next()) 
 				{
-					pData->m_pSqlData->TeamData(pTeam)->m_teamSQLID = (int)pData->m_pSqlData->m_pResults->getInt("ID");
+					pData->m_pSqlData->TeamData(pTeam)->m_teamSQLID = (long)pData->m_pSqlData->m_pResults->getInt("ID");
 				}
 				else
 				{
 					//sth. is wrong (Allisone: how to throw exception ?)
-					pData->m_pSqlData->Disconnect();
-					return;
+//					pData->m_pSqlData->Disconnect();
+					goto endTeamScoreLoad;
 				}
 				
 				// Add Players to Team
@@ -873,7 +866,7 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 			dbg_msg("SQL", aBuf);
 			dbg_msg("SQL", "ERROR: Could not update account");
 		}
-		
+	endTeamScoreLoad:
 		// disconnect from database
 		pData->m_pSqlData->Disconnect();
 	}
@@ -909,11 +902,6 @@ void CSqlScore::SaveTeamScoreThread(void *_pData){
 		{
 			char aBuf[768];
 			CTeamData* teamData = (CTeamData *)pData->m_pSqlData->TeamData(pData->m_pTeam);
-			
-			if (teamData->m_teamSQLID == 9999999999) {
-				pData->m_pSqlData->GameServer()->SendChatTarget(-1, "Your ID is bogus, maybe your name starts with special characters ? Can't save your records");
-				return;
-			}
 			
 			// get the old best time from db
 			str_format(aBuf, sizeof(aBuf), 				   
@@ -986,11 +974,20 @@ void CSqlScore::SaveTeamScore(int Team, float Time, CGameTeams *pTeams){
 	CConsole* pCon = (CConsole*)GameServer()->Console();
 	if(pCon->m_Cheated)
 		return;
+		
+	if (TeamData(Team)->m_teamSQLID == 9999999999) {
+		dbg_msg("SQL","A Team ID was bogus");
+		return;
+	}
 	
 	CSqlScoreData *Tmp = new CSqlScoreData();
 	Tmp->m_pTeams = pTeams;	
 	Tmp->m_pTeam = Team;
 	Tmp->m_Time = Time;
+	
+
+	
+	
 	for(int i = 0; i < NUM_CHECKPOINTS; i++)
 		Tmp->m_aCpCurrent[i] = pTeams->m_CpCurrent[Team][i];
 	Tmp->m_pSqlData = this;
@@ -1015,11 +1012,6 @@ void CSqlScore::SaveScoreThread(void *pUser)
 			char aBuf[768];
 			CPlayerData* playerData = (CPlayerData *)pData->m_pSqlData->PlayerData(pData->m_ClientID);
 			
-			if (playerData->m_playerSQLID == 9999999999) {
-				pData->m_pSqlData->GameServer()->SendChatTarget(-1, "Your ID is bogus, maybe your name starts with special characters ? Can't save your records");
-				return;
-			}
-
 			// get the old best time from db
 			str_format(aBuf, sizeof(aBuf), 				   
 					   "SELECT ID, Time FROM %s_runs WHERE PlayerID = '%d' AND MapCRCID IN (%s) "
@@ -1092,8 +1084,15 @@ void CSqlScore::SaveScore(int ClientID, float Time, CCharacter *pChar)
 	CConsole* pCon = (CConsole*)GameServer()->Console();
 	if(pCon->m_Cheated)
 		return;
+	
+	if (PlayerData(ClientID)->m_playerSQLID == 9999999999) {
+		dbg_msg("SQL", "Client SQL ID was bogus");
+		return;
+	}
+	
 	CSqlScoreData *Tmp = new CSqlScoreData();
 	Tmp->m_ClientID = ClientID;
+	
 	str_copy(Tmp->m_aName, Server()->ClientName(ClientID), sizeof(Tmp->m_aName));
 	Tmp->m_Time = Time;
 	for(int i = 0; i < NUM_CHECKPOINTS; i++)
@@ -1495,6 +1494,101 @@ void CSqlScore::ShowMapCRCsThread(void *pUser)
 	lock_release(gs_SqlLock);	
 }
 
+void CSqlScore::ShowTeamNameThread(void *_pData)
+{
+	lock_wait(gs_SqlLock);
+
+	CSqlScoreData *pData = (CSqlScoreData *)_pData;
+		pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, "Will tell you teamName");
+	int pTeamNo = pData->m_pTeam;
+	//char* aName = pData->m_aName;
+	//CGameTeams *pTeams = &((CGameControllerDDRace*)pData->m_pSqlData->GameServer()->m_pController)->m_Teams;
+	long pTeamSQLID = pData->m_pSqlData->TeamData(pTeamNo)->m_teamSQLID;
+		
+	// Connect to database
+	if(pData->m_pSqlData->Connect())
+	{
+		try
+		{
+			char aBuf[512];	
+			
+			str_format(aBuf, sizeof(aBuf), 
+					   "SELECT Name FROM %s_teams WHERE ID = %d LIMIT %d,1", 
+					   pData->m_pSqlData->m_pDDRaceTablesPrefix, pTeamSQLID);
+			pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);					
+			
+			if(pData->m_pSqlData->m_pResults->rowsCount() == 1)
+			{
+				pData->m_pSqlData->m_pResults->next();
+				str_format(aBuf, sizeof(aBuf),"Your team name: %s",pData->m_pSqlData->m_pResults->getString("Name").c_str());	
+				pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, aBuf);
+			}
+			else
+			{
+				pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, "Wow, you have tricked the system. Tell Trust at DDRace.info");
+				str_format(aBuf,sizeof(aBuf),"Team No = %d ,SQL ID = %d",pTeamNo,pTeamSQLID);
+				pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, aBuf);				
+			}
+			
+			// delete results and statement
+			delete pData->m_pSqlData->m_pResults;
+			delete pData->m_pSqlData->m_pStatement;
+		}
+		catch (sql::SQLException &e)
+		{
+			char aBuf[256];
+			str_format(aBuf, sizeof(aBuf), "MySQL Error: %s", e.what());
+			dbg_msg("SQL", aBuf);
+			dbg_msg("SQL", "ERROR: Could not show times");
+		}
+		// disconnect from database
+		pData->m_pSqlData->Disconnect();
+	}
+	delete pData;
+	
+	lock_release(gs_SqlLock);	
+}
+void CSqlScore::SetTeamNameThread(void *_pData)
+{
+	lock_wait(gs_SqlLock);
+	CSqlScoreData *pData = (CSqlScoreData *)_pData;
+	int pTeamNo = pData->m_pTeam;
+	char* aName = pData->m_aName;
+	//CGameTeams *pTeams = &((CGameControllerDDRace*)pData->m_pSqlData->GameServer()->m_pController)->m_Teams;
+	long pTeamSQLID = pData->m_pSqlData->TeamData(pTeamNo)->m_teamSQLID;
+	
+	// Connect to database
+	if(pData->m_pSqlData->Connect())
+	{
+		try
+		{
+			char aBuf[512];	
+			
+			str_format(aBuf, sizeof(aBuf), 
+					   "UPDATE %s_teams SET Name = '%s' WHERE ID = %d;", 
+					   pData->m_pSqlData->m_pDDRaceTablesPrefix, aName, pTeamSQLID);
+			pData->m_pSqlData->m_pStatement->execute(aBuf);					
+			
+			pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, "Team name changed");
+			
+			// delete results and statement
+			delete pData->m_pSqlData->m_pStatement;
+		}
+		catch (sql::SQLException &e)
+		{
+			char aBuf[256];
+			str_format(aBuf, sizeof(aBuf), "MySQL Error: %s", e.what());
+			dbg_msg("SQL", aBuf);
+			dbg_msg("SQL", "ERROR: Could not show times");
+		}
+		// disconnect from database
+		pData->m_pSqlData->Disconnect();
+	}
+	delete pData;
+	
+	lock_release(gs_SqlLock);	
+}
+
 void CSqlScore::IgnoreOldRunsThread(void *pUser)
 {
 	lock_wait(gs_SqlLock);
@@ -1702,47 +1796,82 @@ void CSqlScore::ShowTimes(int ClientID, const char* pName, int Debut)
 #endif	
 }
 
-void CSqlScore::ShowMapCRCs(int ClientID){
+void CSqlScore::ShowMapCRCs(int ClientID)
+{
 	CSqlScoreData *Tmp = new CSqlScoreData();
 	Tmp->m_ClientID = ClientID;
 	Tmp->m_pSqlData = this;
 
-	void *TimesThread = thread_create(ShowMapCRCsThread, Tmp);
+	void *aThread = thread_create(ShowMapCRCsThread, Tmp);
 #if defined(CONF_FAMILY_UNIX)
-	pthread_detach((pthread_t)TimesThread);
+	pthread_detach((pthread_t)aThread);
 #endif
 }
-void CSqlScore::IgnoreOldRuns(int ClientID, int Before){
+void CSqlScore::ShowTeamName(int CallerClientID, int TeamNo)
+{
+	if (TeamData(TeamNo)->m_teamSQLID == 9999999999) 
+	{
+		GameServer()->SendChatTarget(CallerClientID, "You need to pass the start line first");
+		return;
+	}
+	
+	CSqlScoreData *Tmp = new CSqlScoreData();
+	Tmp->m_ClientID = CallerClientID;
+	Tmp->m_pTeam = TeamNo;	
+	Tmp->m_pSqlData = this;
+	
+	void *aThread = thread_create(ShowTeamNameThread, Tmp);
+#if defined(CONF_FAMILY_UNIX)
+	pthread_detach((pthread_t)aThread);
+#endif
+}
+void CSqlScore::SetTeamName(int CallerClientID, int TeamNo, const char* pName)
+{
+	CSqlScoreData *Tmp = new CSqlScoreData();
+	Tmp->m_ClientID = CallerClientID;
+	Tmp->m_pTeam = TeamNo;
+	str_copy(Tmp->m_aName, pName, sizeof(Tmp->m_aName));
+	Tmp->m_pSqlData = this;
+	
+	void *aThread = thread_create(SetTeamNameThread, Tmp);
+#if defined(CONF_FAMILY_UNIX)
+	pthread_detach((pthread_t)aThread);
+#endif	
+}
+void CSqlScore::IgnoreOldRuns(int ClientID, int Before)
+{
 	CSqlScoreData *Tmp = new CSqlScoreData();
 	Tmp->m_Num = Before;
 	Tmp->m_ClientID = ClientID;
 	Tmp->m_pSqlData = this;
 
-	void *TimesThread = thread_create(IgnoreOldRunsThread, Tmp);
+	void *aThread = thread_create(IgnoreOldRunsThread, Tmp);
 #if defined(CONF_FAMILY_UNIX)
-	pthread_detach((pthread_t)TimesThread);
+	pthread_detach((pthread_t)aThread);
 #endif	
 }
-void CSqlScore::IgnoreOldRunsByCRC(int ClientID, const char* aCRC){
+void CSqlScore::IgnoreOldRunsByCRC(int ClientID, const char* aCRC)
+{
 	CSqlScoreData *Tmp = new CSqlScoreData();
 	Tmp->m_ClientID = ClientID;
 	Tmp->m_pSqlData = this;
 	str_copy(Tmp->m_aName, aCRC, sizeof(Tmp->m_aName));
 	
-	void *TimesThread = thread_create(IgnoreOldRunsByCRCThread, Tmp);
+	void *aThread = thread_create(IgnoreOldRunsByCRCThread, Tmp);
 #if defined(CONF_FAMILY_UNIX)
-	pthread_detach((pthread_t)TimesThread);
+	pthread_detach((pthread_t)aThread);
 #endif
 }
-void CSqlScore::IgnoreOldRunsByDate(int ClientID, const char* aDate){
+void CSqlScore::IgnoreOldRunsByDate(int ClientID, const char* aDate)
+{
 	CSqlScoreData *Tmp = new CSqlScoreData();
 	Tmp->m_ClientID = ClientID;
 	Tmp->m_pSqlData = this;
 	str_copy(Tmp->m_aName, aDate, sizeof(Tmp->m_aName));
 	
-	void *TimesThread = thread_create(IgnoreOldRunsByDateThread, Tmp);
+	void *aThread = thread_create(IgnoreOldRunsByDateThread, Tmp);
 #if defined(CONF_FAMILY_UNIX)
-	pthread_detach((pthread_t)TimesThread);
+	pthread_detach((pthread_t)aThread);
 #endif
 }
 

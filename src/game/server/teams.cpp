@@ -254,12 +254,7 @@ void CGameTeams::OnTeamFinish(int Team)
 		{
 			if(GameServer()->m_apPlayers[i] && GameServer()->m_apPlayers[i]->m_IsUsingDDRaceClient)
 			{
-				CNetMsg_Sv_Record RecordsMsg;
-				RecordsMsg.m_PlayerTimeBest = 0;
-				RecordsMsg.m_ServerTimeBest = GameServer()->m_pController->m_CurrentRecord * 100.0f;
-				RecordsMsg.m_ServerTeamTimeBest = GameServer()->m_pController->m_CurrentTeamRecord * 100.0f;				
-				RecordsMsg.m_TeamTimeBest = GameServer()->m_pController->m_CurrentTeamRecord * 100.0f;
-				Server()->SendPackMsg(&RecordsMsg, MSGFLAG_VITAL, i);
+				GameServer()->SendRecord(i);				
 			}
 		}
 	}
@@ -294,27 +289,6 @@ bool CGameTeams::SetCharacterTeam(int ClientID, int Team)
 	return true;
 }
 
-void CGameTeams::CharacterDied(int ClientID)
-{
-	int Team = m_Core.Team(ClientID);
-	if(Team != TEAM_FLOCK && Team != TEAM_SUPER)
-	{
-		for (int i = 0; i < MAX_CLIENTS; ++i) {
-			if (Team == m_Core.Team(i)) {
-				m_Core.Team(i,TEAM_FLOCK);
-			}
-		}		
-		ChangeTeamState(Team, TEAMSTATE_OPEN);
-	}
-	
-	for (int LoopClientID = 0; LoopClientID < MAX_CLIENTS; ++LoopClientID)
-	{
-		if(Character(LoopClientID) && Character(LoopClientID)->GetPlayer()->m_IsUsingDDRaceClient)
-			SendTeamsState(LoopClientID);
-	}	
-	
-}
-
 void CGameTeams::SetForceCharacterTeam(int ClientID, int Team)
 {
 	m_TeeFinished[ClientID] = false;
@@ -330,7 +304,10 @@ void CGameTeams::SetForceCharacterTeam(int ClientID, int Team)
 				break;
 			} 
 		if(NoOneInOldTeam)
+		{
 			m_TeamState[m_Core.Team(ClientID)] = TEAMSTATE_EMPTY;
+			GameServer()->Score()->TeamData(m_Core.Team(ClientID))->Reset();
+		}
 	}
 	if(Count(m_Core.Team(ClientID)) > 0) m_MembersCount[m_Core.Team(ClientID)]--;
 	m_Core.Team(ClientID, Team);
@@ -344,6 +321,27 @@ void CGameTeams::SetForceCharacterTeam(int ClientID, int Team)
 		if(Character(LoopClientID) && Character(LoopClientID)->GetPlayer()->m_IsUsingDDRaceClient)
 			SendTeamsState(LoopClientID);
 	}
+}
+
+void CGameTeams::CharacterDied(int ClientID)
+{
+	int Team = m_Core.Team(ClientID);
+	if(Team != TEAM_FLOCK && Team != TEAM_SUPER)
+	{
+		for (int i = 0; i < MAX_CLIENTS; ++i) {
+			if (Team == m_Core.Team(i)) {
+				SetForceCharacterTeam(i,TEAM_FLOCK);
+			}
+		}		
+		ChangeTeamState(Team, TEAMSTATE_OPEN);
+	}
+	
+	for (int LoopClientID = 0; LoopClientID < MAX_CLIENTS; ++LoopClientID)
+	{
+		if(Character(LoopClientID) && Character(LoopClientID)->GetPlayer()->m_IsUsingDDRaceClient)
+			SendTeamsState(LoopClientID);
+	}	
+	
 }
 
 int CGameTeams::Count(int Team) const
@@ -398,7 +396,9 @@ void CGameTeams::SendTeamsState(int ClientID)
 	Msg.m_Tee14 = m_Core.Team(14);
 	Msg.m_Tee15 = m_Core.Team(15);
 	
-	Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, ClientID);	
+	Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, ClientID);
+
+	GameServer()->SendRecord(ClientID); // TODO: maybe put that somewhere else (point of this call is to remove the team best time if you respawn and are not in a team anymore
 }
 
 void CGameTeams::SendTeamTimes(int Team)

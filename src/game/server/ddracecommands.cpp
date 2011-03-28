@@ -786,6 +786,45 @@ void CGameContext::ConTimes(IConsole::IResult *pResult, void *pUserData, int Cli
 	}	
 }
 
+void CGameContext::ConTeamName(IConsole::IResult *pResult, void *pUserData, int ClientID)
+{
+	if(g_Config.m_SvUseSQL)
+	{
+		CGameContext *pSelf = (CGameContext *)pUserData;
+		CSqlScore *pScore = (CSqlScore *)pSelf->Score();
+		CPlayer *pPlayer = pSelf->m_apPlayers[ClientID];
+
+		if(!pPlayer)
+			return;
+
+		CGameTeams* teams = &((CGameControllerDDRace*)pSelf->m_pController)->m_Teams;
+		int teamNo = teams->m_Core.Team(ClientID);
+		
+		if (teamNo == TEAM_FLOCK || teamNo == TEAM_SUPER)
+		{
+			pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "You must be in a team to retrieve or set a team name");
+			return;
+		}
+			
+		if(pResult->NumArguments() == 0)
+		{			
+			pScore->ShowTeamName(ClientID,teamNo);
+			return;
+		}
+		else if(pResult->NumArguments() == 1)
+		{
+			pScore->SetTeamName(ClientID,teamNo,pResult->GetString(0));
+			return;
+		}
+		
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "/teamName needs 0 or 1 parameter !");
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "Example: /teamName => prints team name");
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "Example: /teamName smurfs => sets team name = smurfs");		
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "Bad: /teamName Violent Smurfs");
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "Good: /teamName \"Violent Smurfs\"");
+	}	
+}
+
 void CGameContext::ConMapCRCs(IConsole::IResult *pResult, void *pUserData, int ClientID)
 {
 	if(g_Config.m_SvUseSQL)

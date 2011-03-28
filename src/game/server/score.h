@@ -10,11 +10,6 @@
 class CData
 {
 public:
-	CData()
-	{
-		Reset();
-	}
-	void Reset(){};
 	void Set(float Time, float CpTime[NUM_CHECKPOINTS])
 	{
 		m_BestTime = Time;
@@ -30,6 +25,10 @@ public:
 class CPlayerData : public CData
 {
 public:
+	CPlayerData()
+	{
+		Reset();
+	}	
 	void Reset()
 	{
 		m_BestTime = 0;
@@ -45,6 +44,10 @@ public:
 class CTeamData : public CData
 {
 public:
+	CTeamData()
+	{
+		Reset();
+	}	
 	void Reset()
 	{
 		m_BestTime = 0;

@@ -188,7 +188,7 @@ void CSqlScore::UpdateDBVersion(char *pFromVersion){
 		// create table: players
 		str_format(aBuf, sizeof(aBuf),		
 				   "CREATE TABLE `%s_players` ("
-				   "`ID` int(10) NOT NULL AUTO_INCREMENT,"
+				   "`ID` int(9) NOT NULL AUTO_INCREMENT,"
 				   "`Name` varchar(%d) NOT NULL,"
 				   "`TimeAdded` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,"				   
 				   "PRIMARY KEY (`ID`), UNIQUE KEY `Name` (`Name`)"
@@ -198,9 +198,9 @@ void CSqlScore::UpdateDBVersion(char *pFromVersion){
 		// create table: runs
 		str_format(aBuf, sizeof(aBuf),				
 				   "CREATE TABLE `%s_runs` ("
-				   "`ID` int(10) NOT NULL AUTO_INCREMENT,"
+				   "`ID` int(9) NOT NULL AUTO_INCREMENT,"
 				   "`MapCRCID` int(4) NOT NULL,"
-				   "`PlayerID` int(10) NOT NULL,"
+				   "`PlayerID` int(9) NOT NULL,"
 				   "`Time` float NOT NULL DEFAULT '0',"
 				   "`TimeOfEvent` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,"
 				   "PRIMARY KEY (`ID`),KEY `MapCRCID` (`MapCRCID`),"
@@ -210,7 +210,7 @@ void CSqlScore::UpdateDBVersion(char *pFromVersion){
 		// create table: record_checkpoints
 		str_format(aBuf, sizeof(aBuf),				
 				   "CREATE TABLE `%s_record_checkpoints` ("
-				   "`RunID` int(10) NOT NULL,"
+				   "`RunID` int(9) NOT NULL,"
 				   "`Number` int(2) NOT NULL,"
 				   "`Time` float DEFAULT '0',"
 				   "UNIQUE KEY `RunID_2` (`RunID`,`Number`),"
@@ -232,7 +232,7 @@ void CSqlScore::UpdateDBVersion(char *pFromVersion){
 		str_format(aBuf, sizeof(aBuf),				
 				   "CREATE TABLE `%s_team_members` ("
 				   "`TeamID` int(6) NOT NULL,"				   
-				   "`PlayerID` int(10) NOT NULL,"				   
+				   "`PlayerID` int(9) NOT NULL,"				   
 				   "UNIQUE KEY `TeamMembersID` (`TeamID`,`PlayerID`),"
 				   "KEY `PlayerID` (`PlayerID`)"
 				   ") DEFAULT CHARSET=utf8;",m_pDDRaceTablesPrefix,MAX_NAME_LENGTH);
@@ -241,7 +241,7 @@ void CSqlScore::UpdateDBVersion(char *pFromVersion){
 		// create table: team_runs
 		str_format(aBuf, sizeof(aBuf),				
 				   "CREATE TABLE `%s_team_runs` ("
-				   "`ID` int(10) NOT NULL AUTO_INCREMENT,"
+				   "`ID` int(9) NOT NULL AUTO_INCREMENT,"
 				   "`MapCRCID` int(4) NOT NULL,"
 				   "`TeamID` int(6) NOT NULL,"
 				   "`Time` float NOT NULL DEFAULT '0',"
@@ -253,7 +253,7 @@ void CSqlScore::UpdateDBVersion(char *pFromVersion){
 		// create table: record_team_checkpoints
 		str_format(aBuf, sizeof(aBuf),				
 				   "CREATE TABLE `%s_team_record_checkpoints` ("
-				   "`RunID` int(10) NOT NULL,"
+				   "`RunID` int(9) NOT NULL,"
 				   "`Number` int(2) NOT NULL,"
 				   "`Time` float DEFAULT '0',"
 				   "UNIQUE KEY `RunID_2` (`RunID`,`Number`),"
@@ -280,7 +280,7 @@ void CSqlScore::UpdateDBVersion(char *pFromVersion){
 		// create temp table: temp_all_runs
 		str_format(aBuf, sizeof(aBuf),				
 				   "CREATE TABLE `%s_temp_all_runs` ("
-				   "`RunID` int(10) NOT NULL AUTO_INCREMENT,"
+				   "`RunID` int(9) NOT NULL AUTO_INCREMENT,"
 				   "`PlayerName` VARCHAR(%d) NOT NULL,"
 				   "`MapCRCID` int(4) NOT NULL,"					
 				   "`Time` FLOAT DEFAULT 0,"
@@ -410,7 +410,7 @@ void CSqlScore::UpdateDBVersion(char *pFromVersion){
 		// into %s_runs
 		while (m_pResults->next()) {		
 			str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_runs(ID, MapCRCID, PlayerID, Time, TimeOfEvent) VALUES ('%d','%d','%d','%.2f','%s');",m_pDDRaceTablesPrefix,m_pResults->getInt("RunID"),m_pResults->getInt("MapCRCID"),m_pResults->getInt("PlayerID"),(float)m_pResults->getDouble("Time"),m_pResults->getString("TimeOfEvent").c_str());
-			statement2->execute(aBuf);
+			statement2->execute(aBuf); // TODO: Check for all getInt's what happens if int is out of range (when long would be needed)
 		}		
 		
 		str_format(aBuf, sizeof(aBuf),
@@ -639,13 +639,13 @@ void CSqlScore::LoadScoreThread(void *pUser)
 			// and get ID
 			playerData->m_playerSQLID = pData->m_pSqlData->m_pResults->getInt("ID");
 
-			str_format(aBuf, sizeof(aBuf), "Player %s has SQL ID %d",pData->m_aName,playerData->m_playerSQLID);
+			str_format(aBuf, sizeof(aBuf), "Player %s has SQL ID %ld",pData->m_aName,playerData->m_playerSQLID);
 			dbg_msg("SQL",aBuf); // TODO: remove if enough testet... id being wrong was a resistant bug
 			
 			// get best time and related checkpoints
 			str_format(aBuf, sizeof(aBuf), 				   
 					   "SELECT * FROM "
-					   "(SELECT ID, Time as RunTime FROM %s_runs WHERE PlayerID = %d AND MapCRCID IN (%s) "
+					   "(SELECT ID, Time as RunTime FROM %s_runs WHERE PlayerID = %ld AND MapCRCID IN (%s) "
 					   "ORDER BY TIME ASC "
 					   "LIMIT 0,1) as run "
 					   "LEFT JOIN %s_record_checkpoints as recordCps "
@@ -735,17 +735,22 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 			CGameTeams *pTeams = pData->m_pTeams;
 			int pPlayerSQLIDs[MAX_CLIENTS];
 						
+			char names[255];
+			str_format(names, sizeof(names),"");
 			
 			for(int i = 0, j = 0; i < MAX_CLIENTS; ++i)
 			{
 				if(pTeam == pTeams->m_Core.Team(i))
 				{
 					CPlayerData *pPlayerData = pData->m_pSqlData->PlayerData(i);
-					pPlayerSQLIDs[j] = pPlayerData->m_playerSQLID;					
+					pPlayerSQLIDs[j] = pPlayerData->m_playerSQLID;	
+					const char* playerName = pData->m_pSqlData->Server()->ClientName(i);
 					str_format(aStringNumber,sizeof(aStringNumber),"%d",pPlayerData->m_playerSQLID);
 					strcat(aNumberStringChain,aStringNumber);
+					strcat(names,playerName);
 					if (++j < pTeamsCount) {
-						strcat(aNumberStringChain,", ");						
+						strcat(aNumberStringChain,", ");
+						strcat(names,", ");	
 					}
 				}
 			}
@@ -787,8 +792,11 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 			else
 			{
 				// Create new Team ID
-				str_format(aBuf,sizeof(aBuf),"INSERT INTO %s_teams (ID) Values (NULL);",pData->m_pSqlData->m_pDDRaceTablesPrefix);
-				pData->m_pSqlData->m_pStatement->execute(aBuf);
+				str_format(aBuf,sizeof(aBuf),"INSERT INTO %s_teams (ID,name) Values (NULL,?);",pData->m_pSqlData->m_pDDRaceTablesPrefix,names);
+				sql::PreparedStatement *prepStatement = pData->m_pSqlData->m_pConnection->prepareStatement(aBuf);
+				prepStatement->setString(1,names);
+				prepStatement->execute();
+				delete prepStatement;
 				
 				// Get new Team ID
 				str_format(aBuf,sizeof(aBuf),"SELECT LAST_INSERT_ID() as ID;");
@@ -807,7 +815,7 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 				// Add Players to Team
 				for(int i = 0; i < pTeamsCount; i++)
 				{
-					str_format(aBuf,sizeof(aBuf),"INSERT INTO %s_team_members (TeamID,PlayerID) Values (%d,%d);", pData->m_pSqlData->m_pDDRaceTablesPrefix, pData->m_pSqlData->TeamData(pTeam)->m_teamSQLID, pPlayerSQLIDs[i]);
+					str_format(aBuf,sizeof(aBuf),"INSERT INTO %s_team_members (TeamID,PlayerID) Values (%d,%ld);", pData->m_pSqlData->m_pDDRaceTablesPrefix, pData->m_pSqlData->TeamData(pTeam)->m_teamSQLID, pPlayerSQLIDs[i]);
 					pData->m_pSqlData->m_pStatement->execute(aBuf);		
 				}
 			}	
@@ -815,7 +823,7 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 			// get best time and related checkpoints
 			str_format(aBuf, sizeof(aBuf), 				   
 					   "SELECT * FROM "
-					   "(SELECT ID, Time as RunTime FROM %s_team_runs WHERE TeamID = %d AND MapCRCID IN (%s) "
+					   "(SELECT ID, Time as RunTime FROM %s_team_runs WHERE TeamID = %ld AND MapCRCID IN (%s) "
 					   "ORDER BY TIME ASC "
 					   "LIMIT 0,1) as run "
 					   "LEFT JOIN %s_team_record_checkpoints as recordCps "
@@ -831,9 +839,7 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 								
 //				pData->m_pSqlData->TeamData(pTeam)->m_BestTime = (pData->m_pSqlData->TeamData(pTeam)->m_BestTime)?pData->m_pSqlData->TeamData(pTeam)->m_BestTime:-9999;
 //				pData->m_pSqlData->TeamData(pTeam)->m_CurrentTime = (pData->m_pSqlData->TeamData(pTeam)->m_CurrentTime)?pData->m_pSqlData->TeamData(pTeam)->m_CurrentTime:-9999;
-				dbg_msg("SQL","Setting Times");
-				str_format(aBuf,sizeof(aBuf),"Time %d, %d",pData->m_pSqlData->TeamData(pTeam)->m_BestTime,pData->m_pSqlData->TeamData(pTeam)->m_CurrentTime);
-				dbg_msg("SQL",aBuf);
+
 				
 				pData->m_pSqlData->TeamData(pTeam)->m_BestTime = (float)pData->m_pSqlData->m_pResults->getDouble("RunTime");
 				pData->m_pSqlData->TeamData(pTeam)->m_CurrentTime = (float)pData->m_pSqlData->m_pResults->getDouble("RunTime");	
@@ -903,9 +909,12 @@ void CSqlScore::SaveTeamScoreThread(void *_pData){
 			char aBuf[768];
 			CTeamData* teamData = (CTeamData *)pData->m_pSqlData->TeamData(pData->m_pTeam);
 			
+			str_format(aBuf,sizeof(aBuf),"Saving Team score for team sql id = %ld, team no = %d",teamData->m_teamSQLID, pData->m_pTeam);
+			pData->m_pSqlData->GameServer()->SendChatTarget(-1, aBuf);
+			
 			// get the old best time from db
 			str_format(aBuf, sizeof(aBuf), 				   
-					   "SELECT ID, Time FROM %s_team_runs WHERE TeamID = '%d' AND MapCRCID IN (%s) "
+					   "SELECT ID, Time FROM %s_team_runs WHERE TeamID = '%ld' AND MapCRCID IN (%s) "
 					   "ORDER BY TIME ASC "
 					   "LIMIT 0,1;", pData->m_pSqlData->m_pDDRaceTablesPrefix, teamData->m_teamSQLID,pData->m_pSqlData->m_usedMapCRCIDs, pData->m_pSqlData->m_pDDRaceTablesPrefix);
 			
@@ -919,7 +928,7 @@ void CSqlScore::SaveTeamScoreThread(void *_pData){
 			}	
 			
 			// insert entry in runs
-			str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_team_runs(ID, MapCRCID, TeamID, Time, TimeOfEvent) VALUES (NULL,'%d','%d','%.2f', CURRENT_TIMESTAMP())",pData->m_pSqlData->m_pDDRaceTablesPrefix,pData->m_pSqlData->m_aMapCRCSQLID,teamData->m_teamSQLID,pData->m_Time);
+			str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_team_runs(ID, MapCRCID, TeamID, Time, TimeOfEvent) VALUES (NULL,'%d','%ld','%.2f', CURRENT_TIMESTAMP())",pData->m_pSqlData->m_pDDRaceTablesPrefix,pData->m_pSqlData->m_aMapCRCSQLID,teamData->m_teamSQLID,pData->m_Time);
 			pData->m_pSqlData->m_pStatement->execute(aBuf);
 			
 			dbg_msg("SQL", "Adding new run time done");
@@ -936,7 +945,7 @@ void CSqlScore::SaveTeamScoreThread(void *_pData){
 					// but of course I could also rethink the map design, I keep continue for now
 					if (oldBest != 0.0) {
 						// Update old record entries
-						str_format(aBuf, sizeof(aBuf), "UPDATE %s_team_record_checkpoints SET RunID=LAST_INSERT_ID(), Number='%d',Time='%.2f' WHERE RunID=%d AND Number=%d;",pData->m_pSqlData->m_pDDRaceTablesPrefix,i+1,time,oldID,i+1);
+						str_format(aBuf, sizeof(aBuf), "UPDATE %s_team_record_checkpoints SET RunID=LAST_INSERT_ID(), Number='%d',Time='%.2f' WHERE RunID=%ld AND Number=%d;",pData->m_pSqlData->m_pDDRaceTablesPrefix,i+1,time,oldID,i+1);
 						if(pData->m_pSqlData->m_pStatement->executeUpdate(aBuf) > 0){
 							continue; 
 							// if we changed a row continue, 
@@ -1014,7 +1023,7 @@ void CSqlScore::SaveScoreThread(void *pUser)
 			
 			// get the old best time from db
 			str_format(aBuf, sizeof(aBuf), 				   
-					   "SELECT ID, Time FROM %s_runs WHERE PlayerID = '%d' AND MapCRCID IN (%s) "
+					   "SELECT ID, Time FROM %s_runs WHERE PlayerID = '%ld' AND MapCRCID IN (%s) "
 					   "ORDER BY TIME ASC "
 					   "LIMIT 0,1;", pData->m_pSqlData->m_pDDRaceTablesPrefix, playerData->m_playerSQLID,pData->m_pSqlData->m_usedMapCRCIDs, pData->m_pSqlData->m_pDDRaceTablesPrefix);
 			
@@ -1028,7 +1037,7 @@ void CSqlScore::SaveScoreThread(void *pUser)
 			}	
 			
 			// insert entry in runs
-			str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_runs(ID, MapCRCID, PlayerID, Time, TimeOfEvent) VALUES (NULL,'%d','%d','%.2f', CURRENT_TIMESTAMP())",pData->m_pSqlData->m_pDDRaceTablesPrefix,pData->m_pSqlData->m_aMapCRCSQLID,playerData->m_playerSQLID,pData->m_Time);
+			str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_runs(ID, MapCRCID, PlayerID, Time, TimeOfEvent) VALUES (NULL,'%d','%ld','%.2f', CURRENT_TIMESTAMP())",pData->m_pSqlData->m_pDDRaceTablesPrefix,pData->m_pSqlData->m_aMapCRCSQLID,playerData->m_playerSQLID,pData->m_Time);
 			pData->m_pSqlData->m_pStatement->execute(aBuf);
 			
 			dbg_msg("SQL", "Adding new run time done");
@@ -1045,7 +1054,7 @@ void CSqlScore::SaveScoreThread(void *pUser)
 						// but of course I could also rethink the map design, I keep continue for now
 					if (oldBest != 0.0) {
 						// Update old record entries
-						str_format(aBuf, sizeof(aBuf), "UPDATE %s_record_checkpoints SET RunID=LAST_INSERT_ID(), Number='%d',Time='%.2f' WHERE RunID=%d AND Number=%d;",pData->m_pSqlData->m_pDDRaceTablesPrefix,i+1,time,oldID,i+1);
+						str_format(aBuf, sizeof(aBuf), "UPDATE %s_record_checkpoints SET RunID=LAST_INSERT_ID(), Number='%d',Time='%.2f' WHERE RunID=%ld AND Number=%d;",pData->m_pSqlData->m_pDDRaceTablesPrefix,i+1,time,oldID,i+1);
 						if(pData->m_pSqlData->m_pStatement->executeUpdate(aBuf) > 0){
 							continue; 
 							// if we changed a row continue, 
@@ -1150,7 +1159,7 @@ void CSqlScore::ShowRankThread(void *pUser)
 							   ") AS all_top_times "
 							   "ORDER BY TIME ASC "
 							   ") AS all_ranks "
-							   "WHERE all_ranks.PlayerID = %d "
+							   "WHERE all_ranks.PlayerID = %ld "
 							   ") AS minrun "
 							   "LEFT JOIN %s_runs AS runs ON runs.Time = minrun.Time && runs.PlayerID = minrun.PlayerID && runs.MapCRCID = minrun.MapCRCID "
 							   "ORDER BY TimeOfEvent ASC "
@@ -1254,6 +1263,10 @@ void CSqlScore::ShowTop5Thread(void *pUser)
 		try
 		{
 			char aBuf[512];
+			
+			//
+			// Player Top 5
+			//
 			str_format(aBuf, sizeof(aBuf), 
 					   "SELECT players.Name, Time, Ago, Stamp FROM "
 					   "(SELECT PlayerID, min(Time) as Time, UNIX_TIMESTAMP(CURRENT_TIMESTAMP)-UNIX_TIMESTAMP(TimeOfEvent) as Ago, UNIX_TIMESTAMP(TimeOfEvent) as Stamp "
@@ -1294,6 +1307,52 @@ void CSqlScore::ShowTop5Thread(void *pUser)
 			pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, "--------------------------------");
 			
 			dbg_msg("SQL", "Showing top5 done");
+			
+			
+			//
+			// Team Top5
+			//
+			str_format(aBuf, sizeof(aBuf), 
+					   "SELECT teams.Name, Time, Ago, Stamp FROM "
+					   "(SELECT TeamID, min(Time) as Time, UNIX_TIMESTAMP(CURRENT_TIMESTAMP)-UNIX_TIMESTAMP(TimeOfEvent) as Ago, UNIX_TIMESTAMP(TimeOfEvent) as Stamp "
+					   "FROM %s_team_runs "
+					   "WHERE MapCRCID IN (%s) "
+					   "Group By TeamID "
+					   "ORDER BY `Time` ASC LIMIT %d, 5) as runs "
+					   "LEFT JOIN %s_teams as teams "
+					   "ON runs.TeamID = teams.ID;", pData->m_pSqlData->m_pDDRaceTablesPrefix, pData->m_pSqlData->m_usedMapCRCIDs, pData->m_Num-1,pData->m_pSqlData->m_pDDRaceTablesPrefix);
+			pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);
+			
+			// show top5
+			pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, "--------- Team Top 5 ---------");
+			
+			Rank = pData->m_Num;
+			
+			pTime = 0;
+			pSince = 0;
+			pStamp = 0;
+			while(pData->m_pSqlData->m_pResults->next())
+			{
+				char pAgoString[40] = "\0";
+				pSince = (int)pData->m_pSqlData->m_pResults->getInt("Ago");
+				pStamp = (int)pData->m_pSqlData->m_pResults->getInt("Stamp");
+				pTime = (float)pData->m_pSqlData->m_pResults->getDouble("Time");
+				
+				agoTimeToString(pSince,pAgoString);
+				
+				if (pStamp == 0) {
+					str_format(aBuf, sizeof(aBuf), "%d. %s: %d min %.2f sec", Rank, pData->m_pSqlData->m_pResults->getString("Name").c_str(), (int)(pTime/60), pTime-((int)pTime/60*60));
+				}else{
+					str_format(aBuf, sizeof(aBuf), "%d. %s: %d min %.2f sec, %s ago", Rank, pData->m_pSqlData->m_pResults->getString("Name").c_str(), (int)(pTime/60), pTime-((int)pTime/60*60), pAgoString);
+				}
+				
+				pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, aBuf);
+				Rank++;
+			}
+			pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, "--------------------------------");
+			
+			dbg_msg("SQL", "Showing top5 done");
+			
 			
 			// delete results and statement
 			delete pData->m_pSqlData->m_pResults;
@@ -1341,7 +1400,7 @@ void CSqlScore::ShowTimesThread(void *pUser)
 					str_format(matchedName,sizeof(matchedName),"%s",pResults->getString("PlayerName").c_str());	
 					int playerID = pResults->getInt("PlayerID");					
 					
-					str_format(aBuf, sizeof(aBuf), "SELECT Time, UNIX_TIMESTAMP(CURRENT_TIMESTAMP)-UNIX_TIMESTAMP(TimeOfEvent) as Ago, UNIX_TIMESTAMP(TimeOfEvent) as Stamp FROM %s_runs WHERE PlayerID = '%d' ORDER BY Ago ASC LIMIT %d, 5;", pData->m_pSqlData->m_pDDRaceTablesPrefix, playerID, pData->m_Num-1);
+					str_format(aBuf, sizeof(aBuf), "SELECT Time, UNIX_TIMESTAMP(CURRENT_TIMESTAMP)-UNIX_TIMESTAMP(TimeOfEvent) as Ago, UNIX_TIMESTAMP(TimeOfEvent) as Stamp FROM %s_runs WHERE PlayerID = '%ld' ORDER BY Ago ASC LIMIT %d, 5;", pData->m_pSqlData->m_pDDRaceTablesPrefix, playerID, pData->m_Num-1);
 					pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);
 				}
 				else{
@@ -1499,7 +1558,7 @@ void CSqlScore::ShowTeamNameThread(void *_pData)
 	lock_wait(gs_SqlLock);
 
 	CSqlScoreData *pData = (CSqlScoreData *)_pData;
-		pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, "Will tell you teamName");
+
 	int pTeamNo = pData->m_pTeam;
 	//char* aName = pData->m_aName;
 	//CGameTeams *pTeams = &((CGameControllerDDRace*)pData->m_pSqlData->GameServer()->m_pController)->m_Teams;
@@ -1513,7 +1572,7 @@ void CSqlScore::ShowTeamNameThread(void *_pData)
 			char aBuf[512];	
 			
 			str_format(aBuf, sizeof(aBuf), 
-					   "SELECT Name FROM %s_teams WHERE ID = %d LIMIT %d,1", 
+					   "SELECT Name FROM %s_teams WHERE ID = %ld LIMIT %d,1", 
 					   pData->m_pSqlData->m_pDDRaceTablesPrefix, pTeamSQLID);
 			pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);					
 			
@@ -1526,7 +1585,7 @@ void CSqlScore::ShowTeamNameThread(void *_pData)
 			else
 			{
 				pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, "Wow, you have tricked the system. Tell Trust at DDRace.info");
-				str_format(aBuf,sizeof(aBuf),"Team No = %d ,SQL ID = %d",pTeamNo,pTeamSQLID);
+				str_format(aBuf,sizeof(aBuf),"Team No = %d ,SQL ID = %ld",pTeamNo,pTeamSQLID);
 				pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, aBuf);				
 			}
 			
@@ -1565,7 +1624,7 @@ void CSqlScore::SetTeamNameThread(void *_pData)
 			char aBuf[512];	
 			
 			str_format(aBuf, sizeof(aBuf), 
-					   "UPDATE %s_teams SET Name = '%s' WHERE ID = %d;", 
+					   "UPDATE %s_teams SET Name = '%s' WHERE ID = %ld;", 
 					   pData->m_pSqlData->m_pDDRaceTablesPrefix, aName, pTeamSQLID);
 			pData->m_pSqlData->m_pStatement->execute(aBuf);					
 			

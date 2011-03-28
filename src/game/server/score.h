@@ -35,7 +35,7 @@ public:
 		m_CurrentTime = 0;
 		for(int i = 0; i < NUM_CHECKPOINTS; i++)
 			m_aBestCpTime[i] = 0;
-		m_playerSQLID = 9999999999;
+		m_playerSQLID = 999999999;
 	}
 
 	long m_playerSQLID;	
@@ -54,7 +54,7 @@ public:
 		m_CurrentTime = 0;
 		for(int i = 0; i < NUM_CHECKPOINTS; i++)
 			m_aBestCpTime[i] = 0;
-		m_teamSQLID = 9999999999;
+		m_teamSQLID = 999999999;
 	}	
 	long m_teamSQLID;
 };

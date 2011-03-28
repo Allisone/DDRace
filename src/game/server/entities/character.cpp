@@ -1297,15 +1297,22 @@ void CCharacter::HandleTiles(int Index)
 	//dbg_msg("","N%d L%d R%d B%d T%d",m_TileFIndex,m_TileFIndexL,m_TileFIndexR,m_TileFIndexB,m_TileFIndexT);
 	if(Index < 0)
 		return;
+	
+	CData *pData;
+	if (Teams()->m_Core.Team(m_pPlayer->GetCID()) != TEAM_FLOCK && Teams()->m_Core.Team(m_pPlayer->GetCID()) != TEAM_SUPER )
+		pData = GameServer()->Score()->TeamData(m_pPlayer->GetCID());
+	else
+		pData = GameServer()->Score()->PlayerData(m_pPlayer->GetCID());
+	
 	int cp = GameServer()->Collision()->IsCheckpoint(MapIndex);
 	if(cp != -1 && m_DDRaceState == DDRACE_STARTED && cp > m_CpActive)
 	{
 		m_CpActive = cp;
 		m_CpCurrent[cp] = m_Time;
 		m_CpTick = Server()->Tick() + Server()->TickSpeed() * 2;
-		
+
 		if(m_pPlayer->m_IsUsingDDRaceClient) {
-			CPlayerData *pData = GameServer()->Score()->PlayerData(m_pPlayer->GetCID());
+			//CPlayerData *pData = GameServer()->Score()->PlayerData(m_pPlayer->GetCID());
 			CNetMsg_Sv_DDRaceTime Msg;
 			Msg.m_Time = (int)m_Time;
 			Msg.m_Check = 0;
@@ -1330,7 +1337,7 @@ void CCharacter::HandleTiles(int Index)
 		m_CpCurrent[cpf] = m_Time;
 		m_CpTick = Server()->Tick() + Server()->TickSpeed()*2;
 		if(m_pPlayer->m_IsUsingDDRaceClient) {
-			CPlayerData *pData = GameServer()->Score()->PlayerData(m_pPlayer->GetCID());
+			//CPlayerData *pData = GameServer()->Score()->PlayerData(m_pPlayer->GetCID());
 			CNetMsg_Sv_DDRaceTime Msg;
 			Msg.m_Time = (int)m_Time;
 			Msg.m_Check = 0;
@@ -1380,7 +1387,7 @@ void CCharacter::HandleTiles(int Index)
 	}
 	if(((m_TileIndex == TILE_END) || (m_TileFIndex == TILE_END) || FTile1 == TILE_END || FTile2 == TILE_END || FTile3 == TILE_END || FTile4 == TILE_END || Tile1 == TILE_END || Tile2 == TILE_END || Tile3 == TILE_END || Tile4 == TILE_END) && m_DDRaceState == DDRACE_STARTED)
 	{
-		dbg_msg("Character","will call char finish");
+//		dbg_msg("Character","will call char finish");
 		Controller->m_Teams.OnCharacterFinish(m_pPlayer->GetCID());
 	}
 	if(((m_TileIndex == TILE_FREEZE) || (m_TileFIndex == TILE_FREEZE)) && !m_Super && !m_DeepFreeze)

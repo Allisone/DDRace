@@ -764,7 +764,8 @@ void CCharacter::Die(int Killer, int Weapon)
 	// we got to wait 0.5 secs before respawning
 	m_pPlayer->m_RespawnTick = Server()->Tick()+Server()->TickSpeed()/2;
 
-	((CGameControllerDDRace*)GameServer()->m_pController)->m_Teams.SetForceCharacterTeam(m_pPlayer->GetCID(), 0);
+	((CGameControllerDDRace*)GameServer()->m_pController)->m_Teams.CharacterDied(m_pPlayer->GetCID());	
+//	((CGameControllerDDRace*)GameServer()->m_pController)->m_Teams.SetForceCharacterTeam(m_pPlayer->GetCID(), 0);
 }
 
 bool CCharacter::TakeDamage(vec2 Force, int Dmg, int From, int Weapon)
@@ -958,112 +959,112 @@ void CCharacter::OnFinish()
 	if(time < 0.000001f) return;
 	CPlayerData *pData = GameServer()->Score()->PlayerData(m_pPlayer->GetCID());
 	char aBuf[128];
-		m_CpActive=-2;
-		str_format(aBuf, sizeof(aBuf), "%s finished in: %d minute(s) %5.2f second(s)", Server()->ClientName(m_pPlayer->GetCID()), (int)time/60, time-((int)time/60*60));
+	m_CpActive=-2;
+	str_format(aBuf, sizeof(aBuf), "%s finished in: %d minute(s) %5.2f second(s)", Server()->ClientName(m_pPlayer->GetCID()), (int)time/60, time-((int)time/60*60));
+	if(g_Config.m_SvHideScore)
+		GameServer()->SendChatTarget(m_pPlayer->GetCID(), aBuf);
+	else
+		GameServer()->SendChat(-1, CGameContext::CHAT_ALL, aBuf);
+
+	if(time - pData->m_BestTime < 0)
+	{
+		// new record \o/
+		str_format(aBuf, sizeof(aBuf), "New record: %5.2f second(s) better.", fabs(time - pData->m_BestTime));
 		if(g_Config.m_SvHideScore)
 			GameServer()->SendChatTarget(m_pPlayer->GetCID(), aBuf);
 		else
 			GameServer()->SendChat(-1, CGameContext::CHAT_ALL, aBuf);
-
-		if(time - pData->m_BestTime < 0)
+	}
+	else if(pData->m_BestTime != 0) // tee has already finished?
+	{
+		if(fabs(time - pData->m_BestTime) <= 0.005)
 		{
-			// new record \o/
-			str_format(aBuf, sizeof(aBuf), "New record: %5.2f second(s) better.", fabs(time - pData->m_BestTime));
-			if(g_Config.m_SvHideScore)
-				GameServer()->SendChatTarget(m_pPlayer->GetCID(), aBuf);
-			else
-				GameServer()->SendChat(-1, CGameContext::CHAT_ALL, aBuf);
+			GameServer()->SendChatTarget(m_pPlayer->GetCID(), "You finished with your best time.");
 		}
-		else if(pData->m_BestTime != 0) // tee has already finished?
+		else
 		{
-			if(fabs(time - pData->m_BestTime) <= 0.005)
-			{
-				GameServer()->SendChatTarget(m_pPlayer->GetCID(), "You finished with your best time.");
-			}
-			else
-			{
-				str_format(aBuf, sizeof(aBuf), "%5.2f second(s) worse, better luck next time.", fabs(pData->m_BestTime - time));
-				GameServer()->SendChatTarget(m_pPlayer->GetCID(), aBuf);//this is private, sent only to the tee
-			}
+			str_format(aBuf, sizeof(aBuf), "%5.2f second(s) worse, better luck next time, old time %f.", fabs(pData->m_BestTime - time),pData->m_BestTime);
+			GameServer()->SendChatTarget(m_pPlayer->GetCID(), aBuf);//this is private, sent only to the tee
 		}
+	}
 
-		bool pCallSaveScore = false;
-		#if defined(CONF_SQL)
-			pCallSaveScore = g_Config.m_SvUseSQL;
-		#endif
-		
-		if(!pData->m_BestTime || time < pData->m_BestTime)
-		{
-			// update the score
-			pData->Set(time, m_CpCurrent);
-			pCallSaveScore = true;
-		}
+	bool pCallSaveScore = false;
+	#if defined(CONF_SQL)
+		pCallSaveScore = g_Config.m_SvUseSQL;
+	#endif
+	
+	if(!pData->m_BestTime || time < pData->m_BestTime)
+	{
+		// update the score
+		pData->Set(time, m_CpCurrent);
+		pCallSaveScore = true;
+	}
 
-		if(pCallSaveScore)
-			if(str_comp_num(Server()->ClientName(m_pPlayer->GetCID()), "nameless tee", 12) != 0)
-				GameServer()->Score()->SaveScore(m_pPlayer->GetCID(), time, this);		
+	if(pCallSaveScore)
+		if(str_comp_num(Server()->ClientName(m_pPlayer->GetCID()), "nameless tee", 12) != 0)
+			GameServer()->Score()->SaveScore(m_pPlayer->GetCID(), time, this);		
 
-		bool NeedToSendNewRecord = false;
-		// update server best time
-		if(GameServer()->m_pController->m_CurrentRecord == 0 || time < GameServer()->m_pController->m_CurrentRecord)
-		{
-			// check for nameless
-			if(str_comp_num(Server()->ClientName(m_pPlayer->GetCID()), "nameless tee", 12) != 0) {
-				GameServer()->m_pController->m_CurrentRecord = time;
-				//dbg_msg("character", "Finish");
-				NeedToSendNewRecord = true;
-			}				
-		}
-
-		m_DDRaceState = DDRACE_FINISHED;
-		// set player score
-		if(!pData->m_CurrentTime || pData->m_CurrentTime > time)
-		{
-			pData->m_CurrentTime = time;
+	bool NeedToSendNewRecord = false;
+	// update server best time
+	if(GameServer()->m_pController->m_CurrentRecord == 0 || time < GameServer()->m_pController->m_CurrentRecord)
+	{
+		// check for nameless
+		if(str_comp_num(Server()->ClientName(m_pPlayer->GetCID()), "nameless tee", 12) != 0) {
+			GameServer()->m_pController->m_CurrentRecord = time;
+			//dbg_msg("character", "Finish");
 			NeedToSendNewRecord = true;
-			for(int i = 0; i < MAX_CLIENTS; i++)
+		}				
+	}
+
+	m_DDRaceState = DDRACE_FINISHED;
+	// set player score
+	if(!pData->m_CurrentTime || pData->m_CurrentTime > time)
+	{
+		pData->m_CurrentTime = time;
+		NeedToSendNewRecord = true;
+		for(int i = 0; i < MAX_CLIENTS; i++)
+		{
+			if(GameServer()->m_apPlayers[i] && GameServer()->m_apPlayers[i]->m_IsUsingDDRaceClient)
 			{
-				if(GameServer()->m_apPlayers[i] && GameServer()->m_apPlayers[i]->m_IsUsingDDRaceClient)
+				if(!g_Config.m_SvHideScore || i == m_pPlayer->GetCID())
 				{
-					if(!g_Config.m_SvHideScore || i == m_pPlayer->GetCID())
-					{
-						CNetMsg_Sv_PlayerTime Msg;
-						Msg.m_Time = time * 100.0;
-						Msg.m_ClientID = m_pPlayer->GetCID();
-						Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, i);
-					}
+					CNetMsg_Sv_PlayerTime Msg;
+					Msg.m_Time = time * 100.0;
+					Msg.m_ClientID = m_pPlayer->GetCID();
+					Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, i);
 				}
 			}
 		}
-		
-		if(NeedToSendNewRecord && GetPlayer()->m_IsUsingDDRaceClient) { 
-			for(int i = 0; i < MAX_CLIENTS; i++)
+	}
+	
+	if(NeedToSendNewRecord && GetPlayer()->m_IsUsingDDRaceClient) { 
+		for(int i = 0; i < MAX_CLIENTS; i++)
+		{
+			if(GameServer()->m_apPlayers[i] && GameServer()->m_apPlayers[i]->m_IsUsingDDRaceClient)
 			{
-				if(GameServer()->m_apPlayers[i] && GameServer()->m_apPlayers[i]->m_IsUsingDDRaceClient)
-				{
-					GameServer()->SendRecord(i);
-				}
+				GameServer()->SendRecord(i);
 			}
 		}
-		
-		if(GetPlayer()->m_IsUsingDDRaceClient) {
-			CNetMsg_Sv_DDRaceTime Msg;
-			Msg.m_Time = (int)(time * 100.0f);
-			Msg.m_Check = 0;
-			Msg.m_Finish = 1;
+	}
+	
+	if(GetPlayer()->m_IsUsingDDRaceClient) {
+		CNetMsg_Sv_DDRaceTime Msg;
+		Msg.m_Time = (int)(time * 100.0f);
+		Msg.m_Check = 0;
+		Msg.m_Finish = 1;
 
-				if(pData->m_BestTime)
-				{
-					float Diff = (time - pData->m_BestTime)*100;
-					Msg.m_Check = (int)Diff;
-				}
-			
-			Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, m_pPlayer->GetCID());
+		if(pData->m_BestTime)
+		{
+			float Diff = (time - pData->m_BestTime)*100;
+			Msg.m_Check = (int)Diff;
 		}
 
-		int TTime = 0-(int)time;
-		if(m_pPlayer->m_Score < TTime)
-			m_pPlayer->m_Score = TTime;
+		Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, m_pPlayer->GetCID());
+	}
+
+	int TTime = 0-(int)time;
+	if(m_pPlayer->m_Score < TTime)
+		m_pPlayer->m_Score = TTime;
 
 }
 
@@ -1156,7 +1157,10 @@ void CCharacter::HandleSkippableTiles(int Index)
 			GameLayerClipped(m_Pos)) &&
 			!m_Super)
 		{
-			Die(m_pPlayer->GetCID(), WEAPON_WORLD);
+			if (Team() == TEAM_FLOCK || Teams()->TeamFinished(Team())) 
+				Die(m_pPlayer->GetCID(), WEAPON_WORLD);	
+			else
+				Freeze();
 			return;
 		}
 
@@ -1293,14 +1297,22 @@ void CCharacter::HandleTiles(int Index)
 	//dbg_msg("","N%d L%d R%d B%d T%d",m_TileFIndex,m_TileFIndexL,m_TileFIndexR,m_TileFIndexB,m_TileFIndexT);
 	if(Index < 0)
 		return;
+	
+	CData *pData;
+	if (Teams()->m_Core.Team(m_pPlayer->GetCID()) != TEAM_FLOCK && Teams()->m_Core.Team(m_pPlayer->GetCID()) != TEAM_SUPER )
+		pData = GameServer()->Score()->TeamData(m_pPlayer->GetCID());
+	else
+		pData = GameServer()->Score()->PlayerData(m_pPlayer->GetCID());
+	
 	int cp = GameServer()->Collision()->IsCheckpoint(MapIndex);
 	if(cp != -1 && m_DDRaceState == DDRACE_STARTED && cp > m_CpActive)
 	{
 		m_CpActive = cp;
 		m_CpCurrent[cp] = m_Time;
 		m_CpTick = Server()->Tick() + Server()->TickSpeed() * 2;
+
 		if(m_pPlayer->m_IsUsingDDRaceClient) {
-			CPlayerData *pData = GameServer()->Score()->PlayerData(m_pPlayer->GetCID());
+			//CPlayerData *pData = GameServer()->Score()->PlayerData(m_pPlayer->GetCID());
 			CNetMsg_Sv_DDRaceTime Msg;
 			Msg.m_Time = (int)m_Time;
 			Msg.m_Check = 0;
@@ -1325,7 +1337,7 @@ void CCharacter::HandleTiles(int Index)
 		m_CpCurrent[cpf] = m_Time;
 		m_CpTick = Server()->Tick() + Server()->TickSpeed()*2;
 		if(m_pPlayer->m_IsUsingDDRaceClient) {
-			CPlayerData *pData = GameServer()->Score()->PlayerData(m_pPlayer->GetCID());
+			//CPlayerData *pData = GameServer()->Score()->PlayerData(m_pPlayer->GetCID());
 			CNetMsg_Sv_DDRaceTime Msg;
 			Msg.m_Time = (int)m_Time;
 			Msg.m_Check = 0;
@@ -1374,7 +1386,10 @@ void CCharacter::HandleTiles(int Index)
 		
 	}
 	if(((m_TileIndex == TILE_END) || (m_TileFIndex == TILE_END) || FTile1 == TILE_END || FTile2 == TILE_END || FTile3 == TILE_END || FTile4 == TILE_END || Tile1 == TILE_END || Tile2 == TILE_END || Tile3 == TILE_END || Tile4 == TILE_END) && m_DDRaceState == DDRACE_STARTED)
+	{
+//		dbg_msg("Character","will call char finish");
 		Controller->m_Teams.OnCharacterFinish(m_pPlayer->GetCID());
+	}
 	if(((m_TileIndex == TILE_FREEZE) || (m_TileFIndex == TILE_FREEZE)) && !m_Super && !m_DeepFreeze)
 		Freeze();
 	else if(((m_TileIndex == TILE_UNFREEZE) || (m_TileFIndex == TILE_UNFREEZE)) && !m_DeepFreeze)

@@ -66,7 +66,13 @@ CONSOLE_COMMAND("utf8", "", CFGFLAG_SERVER, ConUTF8, this, "/utf8 switches from 
 
 #if defined(CONF_SQL)
 CONSOLE_COMMAND("times", "?s?i", CFGFLAG_SERVER, ConTimes, this, "/times ?s?i shows last 5 times of the server or of a player beginning with name s starting with time i (i = 1 by default)", IConsole::CONSOLELEVEL_USER)
+CONSOLE_COMMAND("teamName", "?s", CFGFLAG_SERVER, ConTeamName, this, "/teamName ?s shows or sets the team name (if in a team)", IConsole::CONSOLELEVEL_USER)
+CONSOLE_COMMAND("mapCRCs", "", CFGFLAG_SERVER, ConMapCRCs, this, "/mapCRCs lists all map versions of the current map with crc, date and number", IConsole::CONSOLELEVEL_USER)
+CONSOLE_COMMAND("ignoreOldRuns", "i", CFGFLAG_SERVER, ConIgnoreOldRuns, this, "/ignoreOldRuns i sets a flag in the db, so that all runs/records get ignored with Map CRC older than newest CRC - i (i = 0 would be current CRC)", IConsole::CONSOLELEVEL_ADMIN)
+CONSOLE_COMMAND("ignoreOldRunsByCRC", "s", CFGFLAG_SERVER, ConIgnoreOldRunsByCRC, this, "/ignoreOldRunsByCRC s sets a flag in the db, so that all runs/records get ignored with Map CRC older than the given CRC", IConsole::CONSOLELEVEL_ADMIN)
+CONSOLE_COMMAND("ignoreOldRunsByDate", "s", CFGFLAG_SERVER, ConIgnoreOldRunsByDate, this, "/ignoreOldRunsByDate s sets a flag in the db, so that all runs/records get ignored with Map CRC older than the given date (format: YY-MM-DD HH:MM:SS)", IConsole::CONSOLELEVEL_ADMIN)
 #endif
+
 #undef CONSOLE_COMMAND
 
 #endif

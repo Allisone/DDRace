@@ -313,6 +313,8 @@ Messages = [
 	NetMessage("Sv_Record", [
 		NetIntAny("m_ServerTimeBest"),
 		NetIntAny("m_PlayerTimeBest"),
+		NetIntAny("m_ServerTeamTimeBest"),
+		NetIntAny("m_TeamTimeBest"),							 
 	]),
 	
 	NetMessage("Sv_PlayerTime", [

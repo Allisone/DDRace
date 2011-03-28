@@ -194,6 +194,15 @@ void CFileScore::LoadScore(int ClientID)
 		PlayerData(ClientID)->Set(pPlayer->m_Score, pPlayer->m_aCpTime);
 }
 
+void CFileScore::LoadTeamScore(int Team, CGameTeams *pTeams)
+{
+	// pTeams->SetBestTime(Team, 1200.0); TODO: This
+}
+
+void CFileScore::SaveTeamScore(int Team, float Time, CGameTeams *pTeams){
+	// TODO: This
+}
+
 void CFileScore::SaveScore(int ClientID, float Time, CCharacter *pChar)
 {
 	CConsole* pCon = (CConsole*)GameServer()->Console();

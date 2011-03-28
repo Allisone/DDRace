@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <base/math.h>
+#include <base/utf8convert.h>
 #include <base/tl/sorted_array.h>
 #include <engine/shared/config.h>
 #include <engine/server/server.h>
@@ -800,7 +801,7 @@ void CGameContext::OnMessage(int MsgId, CUnpacker *pUnpacker, int ClientID)
 			Console()->Print(IConsole::OUTPUT_LEVEL_ADDINFO, "chat", pMsg->m_pMessage);
 		}
 		else
-			SendChat(ClientID, Team, pMsg->m_pMessage, ClientID);
+			SendChat(ClientID, Team, pMsg->m_pMessage, ClientID);	
 	}
 	else if(MsgId == NETMSGTYPE_CL_CALLVOTE)
 	{
@@ -1076,6 +1077,11 @@ void CGameContext::OnMessage(int MsgId, CUnpacker *pUnpacker, int ClientID)
 			char aChatText[256];
 			str_format(aChatText, sizeof(aChatText), "'%s' changed name to '%s'", aOldName, Server()->ClientName(ClientID));
 			SendChat(-1, CGameContext::CHAT_ALL, aChatText);
+			
+			// update the player 
+			// (we need a new m_playerSQLID, and new times for hud and logic if playername did change, cause playername is bound to a unique sql id)
+			Score()->PlayerData(ClientID)->Reset();
+			Score()->LoadScore(ClientID);
 		}
 		
 		// set skin
@@ -1657,9 +1663,14 @@ void CGameContext::OnSetAuthed(int ClientID, int Level)
 
 void CGameContext::SendRecord(int ClientID)
 {
+	CTeamsCore * Teams = &((CGameControllerDDRace*)m_pController)->m_Teams.m_Core;
 	CNetMsg_Sv_Record RecordsMsg;
-	RecordsMsg.m_PlayerTimeBest = Score()->PlayerData(ClientID)->m_BestTime * 100.0f;//
 	RecordsMsg.m_ServerTimeBest = m_pController->m_CurrentRecord * 100.0f;//TODO: finish this
+	RecordsMsg.m_PlayerTimeBest = Score()->PlayerData(ClientID)->m_BestTime * 100.0f;//
+	
+	RecordsMsg.m_ServerTeamTimeBest = m_pController->m_CurrentTeamRecord * 100.0f;//TODO: finish this
+	RecordsMsg.m_TeamTimeBest = Score()->TeamData(Teams->Team(ClientID))->m_BestTime * 100.0f;//
+	
 	Server()->SendPackMsg(&RecordsMsg, MSGFLAG_VITAL, ClientID);
 }
 

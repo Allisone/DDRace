@@ -17,6 +17,8 @@ class CHud : public CComponent
 	bool m_FinishTime;
 	float m_ServerRecord;
 	float m_PlayerRecord;
+	float m_ServerTeamRecord;
+	float m_TeamRecord;
 	bool m_DDRaceTimeReceived;
 	
 	

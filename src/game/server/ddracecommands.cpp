@@ -782,10 +782,138 @@ void CGameContext::ConTimes(IConsole::IResult *pResult, void *pUserData, int Cli
 			
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "/times needs 0, 1 or 2 parameter. 1. = name, 2. = start number");
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "Example: /times, /times me, /times Hans, /times \"Papa Smurf\" 5");
-		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "Bad: /times Papa Smurf 5 # Good: /times \"Papa Smurf\" 5 ");						
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "Bad: /times Papa Smurf 5 # Good: /times \"Papa Smurf\" 5 ");
 	}	
 }
+
+void CGameContext::ConTeamName(IConsole::IResult *pResult, void *pUserData, int ClientID)
+{
+	if(g_Config.m_SvUseSQL)
+	{
+		CGameContext *pSelf = (CGameContext *)pUserData;
+		CSqlScore *pScore = (CSqlScore *)pSelf->Score();
+		CPlayer *pPlayer = pSelf->m_apPlayers[ClientID];
+
+		if(!pPlayer)
+			return;
+
+		CGameTeams* teams = &((CGameControllerDDRace*)pSelf->m_pController)->m_Teams;
+		int teamNo = teams->m_Core.Team(ClientID);
+		
+		if (teamNo == TEAM_FLOCK || teamNo == TEAM_SUPER)
+		{
+			pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "You must be in a team to retrieve or set a team name");
+			return;
+		}
+			
+		if(pResult->NumArguments() == 0)
+		{			
+			pScore->ShowTeamName(ClientID,teamNo);
+			return;
+		}
+		else if(pResult->NumArguments() == 1)
+		{
+			pScore->SetTeamName(ClientID,teamNo,pResult->GetString(0));
+			return;
+		}
+		
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "/teamName needs 0 or 1 parameter !");
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "Example: /teamName => prints team name");
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "Example: /teamName smurfs => sets team name = smurfs");		
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "Bad: /teamName Violent Smurfs");
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "Good: /teamName \"Violent Smurfs\"");
+	}	
+}
+
+void CGameContext::ConMapCRCs(IConsole::IResult *pResult, void *pUserData, int ClientID)
+{
+	if(g_Config.m_SvUseSQL)
+	{
+		CGameContext *pSelf = (CGameContext *)pUserData;
+		CSqlScore *pScore = (CSqlScore *)pSelf->Score();
+		CPlayer *pPlayer = pSelf->m_apPlayers[ClientID];
+
+		pScore->ShowMapCRCs(pPlayer->GetCID());
+	}	
+}
+
+void CGameContext::ConIgnoreOldRuns(IConsole::IResult *pResult, void *pUserData, int ClientID)
+{
+	if(g_Config.m_SvUseSQL)
+	{
+		CGameContext *pSelf = (CGameContext *)pUserData;
+		CSqlScore *pScore = (CSqlScore *)pSelf->Score();
+		CPlayer *pPlayer = pSelf->m_apPlayers[ClientID];
+		if(!pPlayer)
+			return;
+
+		if(pResult->NumArguments() == 1)
+		{
+			if(pResult->GetInteger(0) < 0)
+			{
+				pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "/ignoreOldRuns i needs 1 parameter that is greater or equal 0");
+			}
+				
+			pScore->IgnoreOldRuns(pPlayer->GetCID(),pResult->GetInteger(0));
+			return;
+		}
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "/ignoreOldRuns i needs 1 parameter");
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "/ignoreOldRuns i sets a flag in the db so that all runs from the current map get ignored, when they were made on a Map with a CRC older than the current one - i");
+	}
+}
+void CGameContext::ConIgnoreOldRunsByCRC(IConsole::IResult *pResult, void *pUserData, int ClientID)
+{
+	if(g_Config.m_SvUseSQL)
+	{
+		CGameContext *pSelf = (CGameContext *)pUserData;
+		CSqlScore *pScore = (CSqlScore *)pSelf->Score();
+		CPlayer *pPlayer = pSelf->m_apPlayers[ClientID];
+		if(!pPlayer)
+			return;
+
+		if(pResult->NumArguments() == 1)
+		{
+			pScore->IgnoreOldRunsByCRC(pPlayer->GetCID(),pResult->GetString(0));
+			return;
+		}
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "/ignoreOldRunsByCRC s needs 1 parameter");
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "/ignoreOldRunsByCRC s sets a flag in the db so that all runs from the current map get ignored, when they were made on a Map with a CRC older than the given one");
+	}
+}
+void CGameContext::ConIgnoreOldRunsByDate(IConsole::IResult *pResult, void *pUserData, int ClientID)
+{
+	if(g_Config.m_SvUseSQL)
+	{
+		CGameContext *pSelf = (CGameContext *)pUserData;
+		CSqlScore *pScore = (CSqlScore *)pSelf->Score();
+		CPlayer *pPlayer = pSelf->m_apPlayers[ClientID];
+		if(!pPlayer)
+			return;
+
+		if(pResult->NumArguments() == 1)
+		{
+			pScore->IgnoreOldRunsByDate(pPlayer->GetCID(),pResult->GetString(0));
+			return;
+		}
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "/ConIgnoreOldRunsByDate s needs 1 parameter (YY-MM-DD HH:DD:SS)");
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "/ConIgnoreOldRunsByDate s sets a flag in the db so that all runs on the current map get ignored, when they were made on a version with a CRC older than the given date");
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "Example: /ConIgnoreOldRunsByDate \"11-03-08 14:34:22\"");		
+
+	}
+}
 #endif
+
+void CGameContext::ConUTF8(IConsole::IResult *pResult, void *pUserData, int ClientID)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;	
+	CServer* pServ = (CServer*)pSelf->Server();
+	pServ->m_aClients[ClientID].m_IsUsingUTF8Client = !pServ->m_aClients[ClientID].m_IsUsingUTF8Client;
+	if(pServ->m_aClients[ClientID].m_IsUsingUTF8Client)
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "I'm sending you all chat text and names as UTF8");
+	else
+		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "I'm sending you all chat text and names as latin");			
+	//!((CServer*)Server())->m_aClients[ChatterClientID].m_IsUsingUTF8Client;		
+}
 
 void CGameContext::ConRank(IConsole::IResult *pResult, void *pUserData, int ClientID)
 {
@@ -1077,15 +1205,4 @@ void CGameContext::ConMutes(IConsole::IResult *pResult, void *pUserData, int Cli
 		str_format(aBuf, sizeof aBuf, "%d: \"%s\", %d seconds left", i, aIpBuf, (pSelf->m_aMutes[i].m_Expire - pSelf->Server()->Tick()) / pSelf->Server()->TickSpeed());
 		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "mutes", aBuf);
 	}
-}
-
-void CGameContext::ConUTF8(IConsole::IResult *pResult, void *pUserData, int ClientID)
-{
-	CGameContext *pSelf = (CGameContext *)pUserData;
-	CServer* pServ = (CServer*)pSelf->Server();
-	pServ->m_aClients[ClientID].m_IsUsingUTF8Client = !pServ->m_aClients[ClientID].m_IsUsingUTF8Client;
-	if(pServ->m_aClients[ClientID].m_IsUsingUTF8Client)
-		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "I'm sending you text as UTF8");
-	else
-		pSelf->Console()->PrintResponse(IConsole::OUTPUT_LEVEL_STANDARD, "info", "I'm sending you text as latin");
 }

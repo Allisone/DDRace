@@ -229,8 +229,15 @@ private:
 	static void ConKill(IConsole::IResult *pResult, void *pUserData, int ClientID);
 	static void ConTogglePause(IConsole::IResult *pResult, void *pUserData, int ClientID);
 	static void ConTop5(IConsole::IResult *pResult, void *pUserData, int ClientID);
+	
 	#if defined(CONF_SQL)
 	static void ConTimes(IConsole::IResult *pResult, void *pUserData, int ClientID);
+	static void ConTeamName(IConsole::IResult *pResult, void *pUserData, int ClientID);	
+	static void ConMapCRCs(IConsole::IResult *pResult, void *pUserData, int ClientID);
+	static void ConIgnoreOldRuns(IConsole::IResult *pResult, void *pUserData, int ClientID);
+	static void ConIgnoreOldRunsByCRC(IConsole::IResult *pResult, void *pUserData, int ClientID);
+	static void ConIgnoreOldRunsByDate(IConsole::IResult *pResult, void *pUserData, int ClientID);			
+
 	#endif
 
 	static void ConUTF8(IConsole::IResult *pResult, void *pUserData, int ClientID);	

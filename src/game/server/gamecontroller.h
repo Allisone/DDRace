@@ -146,6 +146,7 @@ public:
 
 	//DDRace
 	float m_CurrentRecord;
+	float m_CurrentTeamRecord;
 };
 
 #endif

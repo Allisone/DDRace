@@ -34,6 +34,7 @@ CPlayer::CPlayer(CGameContext *pGameServer, int ClientID, int Team)
 	m_ChatScore = 0;
 	m_PauseInfo.m_Respawn = false;
 	
+	dbg_msg("CPlayer","calling Reset on PlayerData");
 	GameServer()->Score()->PlayerData(ClientID)->Reset();
 	
 	m_Invisible = false;
@@ -166,7 +167,7 @@ void CPlayer::OnDisconnect()
 		GameServer()->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "game", aBuf);
 	}
 	CGameControllerDDRace* Controller = (CGameControllerDDRace*)GameServer()->m_pController;
-	Controller->m_Teams.m_Core.Team(m_ClientID, 0);
+	Controller->m_Teams.SetForceCharacterTeam(m_ClientID, 0);
 }
 
 void CPlayer::OnPredictedInput(CNetObj_PlayerInput *NewInput)
@@ -297,7 +298,7 @@ void CPlayer::LoadCharacter()
 	Character->m_DeepFreeze = m_PauseInfo.m_DeepFreeze;
 	Character->m_EndlessHook = m_PauseInfo.m_EndlessHook;
 	CGameControllerDDRace* Controller = (CGameControllerDDRace*)GameServer()->m_pController;
-	Controller->m_Teams.m_Core.Team(GetCID(), m_PauseInfo.m_Team);
+	Controller->m_Teams.SetForceCharacterTeam(GetCID(), m_PauseInfo.m_Team);
 	m_PauseInfo.m_Respawn = false;
 	m_InfoSaved = false;
 }

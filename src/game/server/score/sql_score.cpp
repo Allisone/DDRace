@@ -909,14 +909,14 @@ void CSqlScore::SaveTeamScoreThread(void *_pData){
 			char aBuf[768];
 			CTeamData* teamData = (CTeamData *)pData->m_pSqlData->TeamData(pData->m_pTeam);
 			
-			str_format(aBuf,sizeof(aBuf),"Saving Team score for team sql id = %ld, team no = %d",teamData->m_teamSQLID, pData->m_pTeam);
+			str_format(aBuf,sizeof(aBuf),"Saving Team score for team sql id = %ld, team no = %d",pData->m_pSQLID, pData->m_pTeam);
 			pData->m_pSqlData->GameServer()->SendChatTarget(-1, aBuf);
 			
 			// get the old best time from db
 			str_format(aBuf, sizeof(aBuf), 				   
 					   "SELECT ID, Time FROM %s_team_runs WHERE TeamID = '%ld' AND MapCRCID IN (%s) "
 					   "ORDER BY TIME ASC "
-					   "LIMIT 0,1;", pData->m_pSqlData->m_pDDRaceTablesPrefix, teamData->m_teamSQLID,pData->m_pSqlData->m_usedMapCRCIDs, pData->m_pSqlData->m_pDDRaceTablesPrefix);
+					   "LIMIT 0,1;", pData->m_pSqlData->m_pDDRaceTablesPrefix, pData->m_pSQLID,pData->m_pSqlData->m_usedMapCRCIDs, pData->m_pSqlData->m_pDDRaceTablesPrefix);
 			
 			pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);
 			
@@ -928,7 +928,7 @@ void CSqlScore::SaveTeamScoreThread(void *_pData){
 			}	
 			
 			// insert entry in runs
-			str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_team_runs(ID, MapCRCID, TeamID, Time, TimeOfEvent) VALUES (NULL,'%d','%ld','%.2f', CURRENT_TIMESTAMP())",pData->m_pSqlData->m_pDDRaceTablesPrefix,pData->m_pSqlData->m_aMapCRCSQLID,teamData->m_teamSQLID,pData->m_Time);
+			str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_team_runs(ID, MapCRCID, TeamID, Time, TimeOfEvent) VALUES (NULL,'%d','%ld','%.2f', CURRENT_TIMESTAMP())",pData->m_pSqlData->m_pDDRaceTablesPrefix,pData->m_pSqlData->m_aMapCRCSQLID,pData->m_pSQLID,pData->m_Time);
 			pData->m_pSqlData->m_pStatement->execute(aBuf);
 			
 			dbg_msg("SQL", "Adding new run time done");
@@ -984,7 +984,7 @@ void CSqlScore::SaveTeamScore(int Team, float Time, CGameTeams *pTeams){
 	if(pCon->m_Cheated)
 		return;
 		
-	if (TeamData(Team)->m_teamSQLID == 9999999999) {
+	if (TeamData(Team)->m_teamSQLID == 999999999) {
 		dbg_msg("SQL","A Team ID was bogus");
 		return;
 	}
@@ -993,9 +993,7 @@ void CSqlScore::SaveTeamScore(int Team, float Time, CGameTeams *pTeams){
 	Tmp->m_pTeams = pTeams;	
 	Tmp->m_pTeam = Team;
 	Tmp->m_Time = Time;
-	
-
-	
+	Tmp->m_pSQLID = TeamData(Team)->m_teamSQLID;
 	
 	for(int i = 0; i < NUM_CHECKPOINTS; i++)
 		Tmp->m_aCpCurrent[i] = pTeams->m_CpCurrent[Team][i];
@@ -1019,13 +1017,13 @@ void CSqlScore::SaveScoreThread(void *pUser)
 		try
 		{
 			char aBuf[768];
-			CPlayerData* playerData = (CPlayerData *)pData->m_pSqlData->PlayerData(pData->m_ClientID);
+//			CPlayerData* playerData = (CPlayerData *)pData->m_pSqlData->PlayerData(pData->m_ClientID);
 			
 			// get the old best time from db
 			str_format(aBuf, sizeof(aBuf), 				   
 					   "SELECT ID, Time FROM %s_runs WHERE PlayerID = '%ld' AND MapCRCID IN (%s) "
 					   "ORDER BY TIME ASC "
-					   "LIMIT 0,1;", pData->m_pSqlData->m_pDDRaceTablesPrefix, playerData->m_playerSQLID,pData->m_pSqlData->m_usedMapCRCIDs, pData->m_pSqlData->m_pDDRaceTablesPrefix);
+					   "LIMIT 0,1;", pData->m_pSqlData->m_pDDRaceTablesPrefix, pData->m_pSQLID,pData->m_pSqlData->m_usedMapCRCIDs, pData->m_pSqlData->m_pDDRaceTablesPrefix);
 			
 			pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);
 			
@@ -1037,7 +1035,7 @@ void CSqlScore::SaveScoreThread(void *pUser)
 			}	
 			
 			// insert entry in runs
-			str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_runs(ID, MapCRCID, PlayerID, Time, TimeOfEvent) VALUES (NULL,'%d','%ld','%.2f', CURRENT_TIMESTAMP())",pData->m_pSqlData->m_pDDRaceTablesPrefix,pData->m_pSqlData->m_aMapCRCSQLID,playerData->m_playerSQLID,pData->m_Time);
+			str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_runs(ID, MapCRCID, PlayerID, Time, TimeOfEvent) VALUES (NULL,'%d','%ld','%.2f', CURRENT_TIMESTAMP())",pData->m_pSqlData->m_pDDRaceTablesPrefix,pData->m_pSqlData->m_aMapCRCSQLID,pData->m_pSQLID,pData->m_Time);
 			pData->m_pSqlData->m_pStatement->execute(aBuf);
 			
 			dbg_msg("SQL", "Adding new run time done");
@@ -1094,13 +1092,14 @@ void CSqlScore::SaveScore(int ClientID, float Time, CCharacter *pChar)
 	if(pCon->m_Cheated)
 		return;
 	
-	if (PlayerData(ClientID)->m_playerSQLID == 9999999999) {
+	if (PlayerData(ClientID)->m_playerSQLID == 999999999) {
 		dbg_msg("SQL", "Client SQL ID was bogus");
 		return;
 	}
 	
 	CSqlScoreData *Tmp = new CSqlScoreData();
 	Tmp->m_ClientID = ClientID;
+	Tmp->m_pSQLID = PlayerData(ClientID)->m_playerSQLID;	
 	
 	str_copy(Tmp->m_aName, Server()->ClientName(ClientID), sizeof(Tmp->m_aName));
 	Tmp->m_Time = Time;
@@ -1135,9 +1134,9 @@ void CSqlScore::ShowRankThread(void *pUser)
 				str_format(matchedName,sizeof(matchedName),"%s",results->getString("PlayerName").c_str());				
 				int playerID = results->getInt("PlayerID");
 				
-				CPlayerData* playerData = pData->m_pSqlData->PlayerData(pData->m_ClientID);
+				//CPlayerData* playerData = pData->m_pSqlData->PlayerData(pData->m_ClientID);
 				
-				if(g_Config.m_SvHideScore && playerID != playerData->m_playerSQLID){
+				if(g_Config.m_SvHideScore && playerID != pData->m_pSQLID){
 					pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, "You are not allowed to see other persons ranks on this server. Sorry.");
 				}
 				else{
@@ -1186,7 +1185,7 @@ void CSqlScore::ShowRankThread(void *pUser)
 						float Time = (float)pData->m_pSqlData->m_pResults->getDouble("Time");
 						int Rank = (int)pData->m_pSqlData->m_pResults->getInt("Rank");
 						
-						if(playerID == playerData->m_playerSQLID && !pData->m_Search)
+						if(playerID == pData->m_pSQLID && !pData->m_Search)
 						{
 							str_format(aBuf, sizeof(aBuf), "%d. Your time: %d minute(s) %5.2f second(s)", Rank, (int)(Time/60), Time-((int)Time/60*60));
 							pData->m_pSqlData->GameServer()->SendChatTarget(-1, aBuf);
@@ -1242,6 +1241,7 @@ void CSqlScore::ShowRank(int ClientID, const char* pName, bool Search)
 	Tmp->m_ClientID = ClientID;
 	str_copy(Tmp->m_aName, pName, sizeof(Tmp->m_aName));
 	Tmp->m_Search = Search;
+	Tmp->m_pSQLID = PlayerData(ClientID)->m_playerSQLID;
 	str_format(Tmp->m_aRequestingPlayer, sizeof(Tmp->m_aRequestingPlayer), " (%s)", Server()->ClientName(ClientID));
 	Tmp->m_pSqlData = this;
 	
@@ -1562,7 +1562,7 @@ void CSqlScore::ShowTeamNameThread(void *_pData)
 	int pTeamNo = pData->m_pTeam;
 	//char* aName = pData->m_aName;
 	//CGameTeams *pTeams = &((CGameControllerDDRace*)pData->m_pSqlData->GameServer()->m_pController)->m_Teams;
-	long pTeamSQLID = pData->m_pSqlData->TeamData(pTeamNo)->m_teamSQLID;
+	long pTeamSQLID = pData->m_pSQLID;
 		
 	// Connect to database
 	if(pData->m_pSqlData->Connect())
@@ -1611,10 +1611,10 @@ void CSqlScore::SetTeamNameThread(void *_pData)
 {
 	lock_wait(gs_SqlLock);
 	CSqlScoreData *pData = (CSqlScoreData *)_pData;
-	int pTeamNo = pData->m_pTeam;
+	//int pTeamNo = pData->m_pTeam;
 	char* aName = pData->m_aName;
 	//CGameTeams *pTeams = &((CGameControllerDDRace*)pData->m_pSqlData->GameServer()->m_pController)->m_Teams;
-	long pTeamSQLID = pData->m_pSqlData->TeamData(pTeamNo)->m_teamSQLID;
+	long pTeamSQLID = pData->m_pSQLID;
 	
 	// Connect to database
 	if(pData->m_pSqlData->Connect())
@@ -1868,7 +1868,7 @@ void CSqlScore::ShowMapCRCs(int ClientID)
 }
 void CSqlScore::ShowTeamName(int CallerClientID, int TeamNo)
 {
-	if (TeamData(TeamNo)->m_teamSQLID == 9999999999) 
+	if (TeamData(TeamNo)->m_teamSQLID == 999999999) 
 	{
 		GameServer()->SendChatTarget(CallerClientID, "You need to pass the start line first");
 		return;
@@ -1876,7 +1876,8 @@ void CSqlScore::ShowTeamName(int CallerClientID, int TeamNo)
 	
 	CSqlScoreData *Tmp = new CSqlScoreData();
 	Tmp->m_ClientID = CallerClientID;
-	Tmp->m_pTeam = TeamNo;	
+	Tmp->m_pTeam = TeamNo;
+	Tmp->m_pSQLID = TeamData(TeamNo)->m_teamSQLID;
 	Tmp->m_pSqlData = this;
 	
 	void *aThread = thread_create(ShowTeamNameThread, Tmp);
@@ -1886,9 +1887,16 @@ void CSqlScore::ShowTeamName(int CallerClientID, int TeamNo)
 }
 void CSqlScore::SetTeamName(int CallerClientID, int TeamNo, const char* pName)
 {
+	if (TeamData(TeamNo)->m_teamSQLID == 999999999) 
+	{
+		GameServer()->SendChatTarget(CallerClientID, "You need to pass the start line first");
+		return;
+	}	
+	
 	CSqlScoreData *Tmp = new CSqlScoreData();
 	Tmp->m_ClientID = CallerClientID;
 	Tmp->m_pTeam = TeamNo;
+	Tmp->m_pSQLID = TeamData(TeamNo)->m_teamSQLID;	
 	str_copy(Tmp->m_aName, pName, sizeof(Tmp->m_aName));
 	Tmp->m_pSqlData = this;
 	

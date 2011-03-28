@@ -50,6 +50,7 @@ public:
 	}	
 	void Reset()
 	{
+		dbg_msg("CTeamData","Reset");
 		m_BestTime = 0;
 		m_CurrentTime = 0;
 		for(int i = 0; i < NUM_CHECKPOINTS; i++)

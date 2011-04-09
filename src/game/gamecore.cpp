@@ -256,10 +256,8 @@ void CCharacterCore::Tick(bool UseInput)
 				CCharacterCore *pCharCore = m_pWorld->m_apCharacters[i];
 				if(!pCharCore || pCharCore == this || !m_pTeams->CanCollide(i, m_Id))
 				{
-					dbg_msg1("GameCore Continue", "ThisId = %d Id = %d Team = %d", m_Id, i, m_pTeams->Team(i));
 					continue;
 				}
-				dbg_msg1("GameCore Past  Continue", "ThisId = %d Id = %d Team = %d", m_Id, i, m_pTeams->Team(i));
 				
 				vec2 ClosestPoint = closest_point_on_line(m_HookPos, NewPos, pCharCore->m_Pos);
 				if(distance(pCharCore->m_Pos, ClosestPoint) < PhysSize+2.0f)
@@ -270,7 +268,6 @@ void CCharacterCore::Tick(bool UseInput)
 						m_HookState = HOOK_GRABBED;
 						m_HookedPlayer = i;
 						Distance = distance(m_HookPos, pCharCore->m_Pos);
-						dbg_msg1("GameCore Hooked", "ThisId = %d Id = %d Team = %d", m_Id, i, m_pTeams->Team(i));
 					}
 				}
 			}

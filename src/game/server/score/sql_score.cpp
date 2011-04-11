@@ -736,7 +736,8 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 			int pPlayerSQLIDs[MAX_CLIENTS];
 						
 			char names[255];
-			str_format(names, sizeof(names),"");
+			names[0]='\0';
+			aNumberStringChain[0]='\0';
 			
 			for(int i = 0, j = 0; i < MAX_CLIENTS; ++i)
 			{
@@ -745,7 +746,7 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 					CPlayerData *pPlayerData = pData->m_pSqlData->PlayerData(i);
 					pPlayerSQLIDs[j] = pPlayerData->m_playerSQLID;	
 					const char* playerName = pData->m_pSqlData->Server()->ClientName(i);
-					str_format(aStringNumber,sizeof(aStringNumber),"%d",pPlayerData->m_playerSQLID);
+					str_format(aStringNumber,sizeof(aStringNumber),"%ld",pPlayerData->m_playerSQLID);
 					strcat(aNumberStringChain,aStringNumber);
 					strcat(names,playerName);
 					if (++j < pTeamsCount) {
@@ -1304,7 +1305,7 @@ void CSqlScore::ShowTop5Thread(void *pUser)
 				pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, aBuf);
 				Rank++;
 			}
-			pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, "--------------------------------");
+			// pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, "--------------------------------");
 			
 			dbg_msg("SQL", "Showing top5 done");
 			
@@ -1572,7 +1573,7 @@ void CSqlScore::ShowTeamNameThread(void *_pData)
 			char aBuf[512];	
 			
 			str_format(aBuf, sizeof(aBuf), 
-					   "SELECT Name FROM %s_teams WHERE ID = %ld LIMIT %d,1", 
+					   "SELECT Name FROM %s_teams WHERE ID = %ld LIMIT 0,1", 
 					   pData->m_pSqlData->m_pDDRaceTablesPrefix, pTeamSQLID);
 			pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);					
 			
@@ -1613,6 +1614,7 @@ void CSqlScore::SetTeamNameThread(void *_pData)
 	CSqlScoreData *pData = (CSqlScoreData *)_pData;
 	//int pTeamNo = pData->m_pTeam;
 	char* aName = pData->m_aName;
+	char* aRequestingPlayer = pData->m_aRequestingPlayer;	
 	//CGameTeams *pTeams = &((CGameControllerDDRace*)pData->m_pSqlData->GameServer()->m_pController)->m_Teams;
 	long pTeamSQLID = pData->m_pSQLID;
 	
@@ -1624,14 +1626,25 @@ void CSqlScore::SetTeamNameThread(void *_pData)
 			char aBuf[512];	
 			
 			str_format(aBuf, sizeof(aBuf), 
-					   "UPDATE %s_teams SET Name = '%s' WHERE ID = %ld;", 
-					   pData->m_pSqlData->m_pDDRaceTablesPrefix, aName, pTeamSQLID);
-			pData->m_pSqlData->m_pStatement->execute(aBuf);					
+					   "UPDATE %s_teams SET Name = ? WHERE ID = %ld;", 
+					   pData->m_pSqlData->m_pDDRaceTablesPrefix, pTeamSQLID);
+			sql::PreparedStatement *prepStatement = pData->m_pSqlData->m_pConnection->prepareStatement(aBuf);
+			prepStatement->setString(1,aName);
+			prepStatement->execute();
+			delete prepStatement;
 			
 			pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, "Team name changed");
 			
-			// delete results and statement
-			delete pData->m_pSqlData->m_pStatement;
+			str_format(aBuf, sizeof(aBuf), "%s changed your teamname to %s",aRequestingPlayer,aName);
+			
+			for(int i = 0; i < MAX_CLIENTS; ++i)
+			{
+				if(pData->m_pTeam == pData->m_pTeams->m_Core.Team(i))
+				{
+					pData->m_pSqlData->GameServer()->SendChatTarget(i, aBuf);
+				}
+			}			
+			
 		}
 		catch (sql::SQLException &e)
 		{
@@ -1897,7 +1910,9 @@ void CSqlScore::SetTeamName(int CallerClientID, int TeamNo, const char* pName)
 	Tmp->m_ClientID = CallerClientID;
 	Tmp->m_pTeam = TeamNo;
 	Tmp->m_pSQLID = TeamData(TeamNo)->m_teamSQLID;	
+	Tmp->m_pTeams = (CGameTeams *)&((CGameControllerDDRace*)GameServer()->m_pController)->m_Teams;
 	str_copy(Tmp->m_aName, pName, sizeof(Tmp->m_aName));
+	str_copy(Tmp->m_aRequestingPlayer, Server()->ClientName(CallerClientID), sizeof(Tmp->m_aRequestingPlayer));	
 	Tmp->m_pSqlData = this;
 	
 	void *aThread = thread_create(SetTeamNameThread, Tmp);

@@ -136,6 +136,7 @@ void CGameTeams::OnTeamStarted(int Team)
 
 void CGameTeams::OnTeamFinish(int Team)
 {
+	dbg_msg1("SQL","OnTeamFinish %d, Team");
 	char aBuf[500];
 	float time = 0.0;
 

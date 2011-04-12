@@ -999,11 +999,27 @@ void CCharacter::OnFinish()
 		pData->Set(time, m_CpCurrent);
 		pCallSaveScore = true;
 	}
+	
+	dbg_msg1("Character","pData->m_BestTime = %f, time = %f, m_CpCurrent %f",pData->m_BestTime,time,m_CpCurrent);
 
 	if(pCallSaveScore)
+	{
+		dbg_msg("Character","pCallSaveScore");
 		if(str_comp_num(Server()->ClientName(m_pPlayer->GetCID()), "nameless tee", 12) != 0)
+		{
+			dbg_msg("Character","str_comp_num(Server()->ClientName(m_pPlayer->GetCID()");
 			GameServer()->Score()->SaveScore(m_pPlayer->GetCID(), time, this);		
-
+		}
+		else
+		{
+			dbg_msg("Character","!str_comp_num(Server()->ClientName(m_pPlayer->GetCID()");
+		}
+	}
+	else
+	{
+		dbg_msg("Character","!pCallSaveScore");
+	}
+		
 	bool NeedToSendNewRecord = false;
 	// update server best time
 	if(GameServer()->m_pController->m_CurrentRecord == 0 || time < GameServer()->m_pController->m_CurrentRecord)

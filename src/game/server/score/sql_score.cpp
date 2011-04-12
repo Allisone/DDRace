@@ -629,11 +629,12 @@ void CSqlScore::LoadScoreThread(void *pUser)
 				prepStatement = pData->m_pSqlData->m_pConnection->prepareStatement(aBuf);
 				prepStatement->setString(1,pData->m_aName);
 				prepStatement->execute();
-				delete prepStatement;
 
 				str_format(aBuf, sizeof(aBuf), "SELECT LAST_INSERT_ID() as ID;", pData->m_pSqlData->m_pDDRaceTablesPrefix, pData->m_aName);
 				pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);	
 				pData->m_pSqlData->m_pResults->next();
+				
+				delete prepStatement;				
 			}
 			
 			// and get ID
@@ -797,7 +798,7 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 				sql::PreparedStatement *prepStatement = pData->m_pSqlData->m_pConnection->prepareStatement(aBuf);
 				prepStatement->setString(1,names);
 				prepStatement->execute();
-				delete prepStatement;
+
 				
 				// Get new Team ID
 				str_format(aBuf,sizeof(aBuf),"SELECT LAST_INSERT_ID() as ID;");
@@ -819,6 +820,8 @@ void CSqlScore::LoadTeamScoreThread(void *_pData)
 					str_format(aBuf,sizeof(aBuf),"INSERT INTO %s_team_members (TeamID,PlayerID) Values (%d,%ld);", pData->m_pSqlData->m_pDDRaceTablesPrefix, pData->m_pSqlData->TeamData(pTeam)->m_teamSQLID, pPlayerSQLIDs[i]);
 					pData->m_pSqlData->m_pStatement->execute(aBuf);		
 				}
+
+				delete prepStatement;
 			}	
 				
 			// get best time and related checkpoints
@@ -1008,7 +1011,9 @@ void CSqlScore::SaveTeamScore(int Team, float Time, CGameTeams *pTeams){
 
 void CSqlScore::SaveScoreThread(void *pUser)
 {
+	dbg_msg("SQL","Going for gs_SqlLock");
 	lock_wait(gs_SqlLock);
+	dbg_msg("SQL","After gs_SqlLock");
 	
 	CSqlScoreData *pData = (CSqlScoreData *)pUser;
 	
@@ -1025,7 +1030,7 @@ void CSqlScore::SaveScoreThread(void *pUser)
 					   "SELECT ID, Time FROM %s_runs WHERE PlayerID = '%ld' AND MapCRCID IN (%s) "
 					   "ORDER BY TIME ASC "
 					   "LIMIT 0,1;", pData->m_pSqlData->m_pDDRaceTablesPrefix, pData->m_pSQLID,pData->m_pSqlData->m_usedMapCRCIDs, pData->m_pSqlData->m_pDDRaceTablesPrefix);
-			
+			dbg_msg("SQL",aBuf);
 			pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);
 			
 			float oldBest = 0.0;
@@ -1038,6 +1043,7 @@ void CSqlScore::SaveScoreThread(void *pUser)
 			// insert entry in runs
 			str_format(aBuf, sizeof(aBuf), "INSERT INTO %s_runs(ID, MapCRCID, PlayerID, Time, TimeOfEvent) VALUES (NULL,'%d','%ld','%.2f', CURRENT_TIMESTAMP())",pData->m_pSqlData->m_pDDRaceTablesPrefix,pData->m_pSqlData->m_aMapCRCSQLID,pData->m_pSQLID,pData->m_Time);
 			pData->m_pSqlData->m_pStatement->execute(aBuf);
+			dbg_msg("SQL",aBuf);
 			
 			dbg_msg("SQL", "Adding new run time done");
 			
@@ -1107,7 +1113,7 @@ void CSqlScore::SaveScore(int ClientID, float Time, CCharacter *pChar)
 	for(int i = 0; i < NUM_CHECKPOINTS; i++)
 		Tmp->m_aCpCurrent[i] = pChar->m_CpCurrent[i];
 	Tmp->m_pSqlData = this;
-	
+	dbg_msg("SQL","Calling SaveScoreThread");
 	void *SaveThread = thread_create(SaveScoreThread, Tmp);
 #if defined(CONF_FAMILY_UNIX)
 	pthread_detach((pthread_t)SaveThread);
@@ -1126,10 +1132,12 @@ void CSqlScore::ShowRankThread(void *pUser)
 	{
 		try
 		{
+			dbg_msg("SQL","going to get queryIDsAndNamesIntoResults");
 			sql::ResultSet *results = pData->m_pSqlData->queryIDsAndNamesIntoResults(pData);
-		
+			dbg_msg("SQL","got queryIDsAndNamesIntoResults");		
 			if(results)
 			{
+				dbg_msg("SQL","results found");
 				char aBuf[800];
 				char matchedName[MAX_NAME_LENGTH];					
 				str_format(matchedName,sizeof(matchedName),"%s",results->getString("PlayerName").c_str());				
@@ -1141,6 +1149,7 @@ void CSqlScore::ShowRankThread(void *pUser)
 					pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, "You are not allowed to see other persons ranks on this server. Sorry.");
 				}
 				else{
+					dbg_msg("SQL","making query");
 					pData->m_pSqlData->m_pStatement->execute("SET @rownum := 0;");
 					
 					// Select Rank, PlayerID, Time, Ago-diff, TimeOfEvent stamp
@@ -1165,7 +1174,7 @@ void CSqlScore::ShowRankThread(void *pUser)
 							   "ORDER BY TimeOfEvent ASC "
 							   "LIMIT 0 , 1"
 							";", pData->m_pSqlData->m_pDDRaceTablesPrefix, pData->m_pSqlData->m_usedMapCRCIDs,playerID,pData->m_pSqlData->m_pDDRaceTablesPrefix);
-					
+					dbg_msg("SQL","calling query");
 					pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);
 					
 					// Check if we have a rank or not
@@ -1732,8 +1741,7 @@ void CSqlScore::IgnoreOldRunsByCRCThread(void *pUser)
 			sql::PreparedStatement *prepStatement = pData->m_pSqlData->m_pConnection->prepareStatement(aBuf);
 			prepStatement->setString(1,pData->m_aName);
 			pData->m_pSqlData->m_pResults = prepStatement->executeQuery();
-			delete prepStatement;					
-				
+							
 			if(pData->m_pSqlData->m_pResults->rowsCount() == 1)
 			{
 				pData->m_pSqlData->m_pResults->next();
@@ -1751,6 +1759,7 @@ void CSqlScore::IgnoreOldRunsByCRCThread(void *pUser)
 			dbg_msg("SQL", "Changing IgnoreRunsBeforeMapCRCID in maps table done");
 		
 			// delete results and statement
+			delete prepStatement;				
 			delete pData->m_pSqlData->m_pResults;
 			delete pData->m_pSqlData->m_pStatement;
 		}
@@ -1788,7 +1797,6 @@ void CSqlScore::IgnoreOldRunsByDateThread(void *pUser)
 			sql::PreparedStatement *prepStatement = pData->m_pSqlData->m_pConnection->prepareStatement(aBuf);
 			prepStatement->setString(1,pData->m_aName);
 			pData->m_pSqlData->m_pResults = prepStatement->executeQuery();
-			delete prepStatement;					
 				
 			if(pData->m_pSqlData->m_pResults->rowsCount() == 1)
 			{
@@ -1807,6 +1815,7 @@ void CSqlScore::IgnoreOldRunsByDateThread(void *pUser)
 			dbg_msg("SQL", "Changing IgnoreRunsBeforeMapCRCID in maps table done");
 		
 			// delete results and statement
+			delete prepStatement;			
 			delete pData->m_pSqlData->m_pResults;
 			delete pData->m_pSqlData->m_pStatement;
 		}
@@ -2011,18 +2020,17 @@ sql::ResultSet *CSqlScore::queryIDsAndNamesIntoResults(void *pUser)
 			   "(SELECT Name as PlayerName, ID as PlayerID "
 			   "FROM %s_players "
 			   "WHERE ID IN ("
-			   "SELECT ID FROM %s_players WHERE Name LIKE ? ORDER BY Length(Name)) "
+			   "SELECT ID FROM %s_players WHERE Name LIKE ?) "
 			   ") as l "
 			   "JOIN "
 			   "(SELECT * FROM %s_runs WHERE MapCRCID IN (%s)) as r "
-			   "ON l.PlayerID = r.PlayerID Group By PlayerName;",pData->m_pSqlData->m_pDDRaceTablesPrefix,pData->m_pSqlData->m_pDDRaceTablesPrefix,pData->m_pSqlData->m_pDDRaceTablesPrefix,pData->m_pSqlData->m_usedMapCRCIDs);
-
+			   "ON l.PlayerID = r.PlayerID Group By PlayerName  ORDER BY Length(PlayerName);",pData->m_pSqlData->m_pDDRaceTablesPrefix,pData->m_pSqlData->m_pDDRaceTablesPrefix,pData->m_pSqlData->m_pDDRaceTablesPrefix,pData->m_pSqlData->m_usedMapCRCIDs);
+	dbg_msg("SQL",aBuf);
 	// Use preparedStatement for anti SQL injection
 	sql::PreparedStatement *prepStatement = pData->m_pSqlData->m_pConnection->prepareStatement(aBuf);
 	str_format(aBuf2, sizeof(aBuf2),"%%%s%%",pData->m_aName);
 	prepStatement->setString(1,aBuf2);
 	results = prepStatement->executeQuery();
-	delete prepStatement;
 	
 	results->next();
 	
@@ -2030,7 +2038,8 @@ sql::ResultSet *CSqlScore::queryIDsAndNamesIntoResults(void *pUser)
 	if(results->rowsCount() == 0){
 		// 0 hits
 		str_format(aBuf, sizeof(aBuf),"Could not find records for a name like %s",pData->m_aName);
-		pData->m_pSqlData->GameServer()->SendChatTarget(-1, aBuf);	
+		pData->m_pSqlData->GameServer()->SendChatTarget(-1, aBuf);
+		delete prepStatement;
 		delete results;
 		return NULL;
 		
@@ -2042,6 +2051,7 @@ sql::ResultSet *CSqlScore::queryIDsAndNamesIntoResults(void *pUser)
 		{			
 			// First row == search string
 			dbg_msg("SQL","Found Name");
+			delete prepStatement;
 			return results;
 		}
 		else
@@ -2062,10 +2072,12 @@ sql::ResultSet *CSqlScore::queryIDsAndNamesIntoResults(void *pUser)
 				}
 			}while(results->next());
 			pData->m_pSqlData->GameServer()->SendChatTarget(-1, aBuf);
+			delete prepStatement;
 			delete results;
 			return NULL;
 		}	
 	}
+	delete prepStatement;
 	return results;
 }
 

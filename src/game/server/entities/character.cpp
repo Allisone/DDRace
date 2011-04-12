@@ -1000,8 +1000,6 @@ void CCharacter::OnFinish()
 		pCallSaveScore = true;
 	}
 	
-	dbg_msg1("Character","pData->m_BestTime = %f, time = %f, m_CpCurrent %f",pData->m_BestTime,time,m_CpCurrent);
-
 	if(pCallSaveScore)
 	{
 		dbg_msg("Character","pCallSaveScore");
